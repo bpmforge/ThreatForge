@@ -1,0 +1,4 @@
+# Bulk formatting commits; hide them from git blame:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# Prettier pass (2026-10-09)
+4d834d1c2ec62c9a436ef9a848641b164e4faa10

@@ -1,0 +1,455 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  # Weekly security sweep (new advisories land without any code change). Only
+  # the Security Scan job runs on the schedule; the others skip themselves.
+  # Gitea Actions supports `schedule` (1.21+); if this instance ignores it,
+  # the pre-push gate still runs the same script on every push.
+  schedule:
+    - cron: '0 6 * * 1'
+
+env:
+  NODE_VERSION: '22'
+
+# Path-aware (single self-hosted runner). On a pull_request each heavy job still
+# RUNS — so its required status check always reports; a *skipped* required check
+# leaves the PR un-mergeable — but short-circuits its expensive steps when its
+# area (frontend/** or server/**) wasn't touched. So a server-only PR no longer
+# pays for a frontend npm ci + vitest + next build, and vice versa. Push events
+# to main/develop always run everything in full.
+jobs:
+  standards:
+    name: Standards Check
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            frontend/package-lock.json
+            server/package-lock.json
+            tools/code-health/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci || (echo "npm ci failed — clearing cache and retrying" && npm cache clean --force && sleep 5 && npm ci)
+
+      - name: Check project standards
+        run: bash .github/scripts/check-standards.sh
+
+      # Schema drift guard. The frontend Prisma schemas (sqlite + postgres) are
+      # GENERATED from the server schema (the single source of truth) by
+      # scripts/sync-schemas.ts. If someone edits the server schema and forgets
+      # to regenerate, the postgres variant silently drifts and PROD BREAKS while
+      # dev (sqlite) still works — this is exactly the ~2-month login outage that
+      # PR #79 fixed. Regenerate and fail if the committed schemas are stale.
+      - name: Verify frontend schema is in sync with server schema
+        run: |
+          # Run through the frontend's tsx (installed above); the script is pure
+          # Node stdlib and needs no server deps.
+          (cd frontend && npx tsx ../scripts/sync-schemas.ts)
+          if ! git diff --quiet -- frontend/prisma/schema.prisma frontend/prisma/schema.postgresql.prisma; then
+            echo "::error::Frontend Prisma schema is out of sync with the server schema."
+            echo "Run: npx tsx scripts/sync-schemas.ts (or 'npm run schema:sync' in frontend) and commit the result."
+            git --no-pager diff -- frontend/prisma/
+            exit 1
+          fi
+
+      # Code-health ratchet (docs/process/CODE_HEALTH_RATCHET.md): duplicate code (jscpd) and
+      # unused files/exports/deps (knip) may not rise above tools/code-health/baseline.json.
+      # knip loads each package's own plugin configs, so server deps are needed too.
+      # opengrep is not installed here, so its rules run in the local gate only.
+      - name: Code-health ratchet
+        run: |
+          (cd server && npm ci --no-audit --no-fund)
+          npm ci --prefix tools/code-health --no-audit --no-fund
+          bash scripts/code-health.sh
+          npm --prefix tools/code-health run --silent format:check
+
+  test-frontend:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect frontend changes
+        id: ch
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            git fetch origin "${{ github.base_ref }}" --depth=1 >/dev/null 2>&1 || true
+            files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" 2>/dev/null || git diff --name-only HEAD~1 2>/dev/null || echo "")
+            if echo "$files" | grep -qE '^frontend/'; then
+              echo "run=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "frontend/ untouched — skipping frontend install/lint/test"
+              echo "run=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Setup Node.js
+        if: steps.ch.outputs.run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        if: steps.ch.outputs.run == 'true'
+        run: npm ci || (echo "npm ci failed — clearing cache and retrying" && npm cache clean --force && sleep 5 && npm ci)
+        working-directory: frontend
+
+      # The Prisma client is generated, not vendored — tsc needs its types
+      # (@prisma/client PrismaClient/Prisma). vitest mocks Prisma so it never
+      # needed this, but the Typecheck step below does.
+      - name: Generate Prisma client
+        if: steps.ch.outputs.run == 'true'
+        run: npx prisma generate
+        working-directory: frontend
+
+      # Lint folded in here (was a separate job). Saves one full `npm ci` per
+      # PR since this job already has the install warm.
+      - name: Lint
+        if: steps.ch.outputs.run == 'true'
+        run: npm run lint
+        working-directory: frontend
+
+      # Type gate. `next build` typechecks a narrower file set than the tsconfig,
+      # so errors (incl. in tests/e2e per tsconfig include) previously reached
+      # HEAD unnoticed — 18 test-fixture type errors were live before this.
+      - name: Typecheck
+        if: steps.ch.outputs.run == 'true'
+        run: npx tsc --noEmit
+        working-directory: frontend
+
+      # Plain `vitest run` instead of --coverage: v8 coverage workers crash in
+      # Gitea Actions / act_runner exec (passes locally + in direct docker; fails
+      # only in act_runner). The gate's job is to catch failing tests; coverage
+      # is a metric, runnable locally or in a separate scheduled job.
+      - name: Run unit tests
+        if: steps.ch.outputs.run == 'true'
+        run: npx vitest run
+        working-directory: frontend
+
+  test-server:
+    name: Server Tests
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect server changes
+        id: ch
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            git fetch origin "${{ github.base_ref }}" --depth=1 >/dev/null 2>&1 || true
+            files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" 2>/dev/null || git diff --name-only HEAD~1 2>/dev/null || echo "")
+            if echo "$files" | grep -qE '^server/'; then
+              echo "run=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "server/ untouched — skipping server install/lint/test"
+              echo "run=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Setup Node.js
+        if: steps.ch.outputs.run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        if: steps.ch.outputs.run == 'true'
+        run: npm ci || (echo "npm ci failed — clearing cache and retrying" && npm cache clean --force && sleep 5 && npm ci)
+        working-directory: server
+
+      - name: Generate Prisma client
+        if: steps.ch.outputs.run == 'true'
+        run: npx prisma generate
+        working-directory: server
+
+      - name: Lint
+        if: steps.ch.outputs.run == 'true'
+        run: npm run lint
+        working-directory: server
+
+      # Type gate. server build is `tsc || true` (errors swallowed by design), so
+      # this is the only place server source types are actually enforced. Uses
+      # `tsc --noEmit` checks source AND test code — the test exclusion was
+      # removed and the emitting build split into tsconfig.build.json.
+      - name: Typecheck
+        if: steps.ch.outputs.run == 'true'
+        run: npx tsc --noEmit
+        working-directory: server
+
+      # Plain `vitest run` instead of --coverage: see note in test-frontend job.
+      - name: Run unit tests
+        if: steps.ch.outputs.run == 'true'
+        run: npx vitest run
+        working-directory: server
+        env:
+          DATABASE_URL: 'file:./test.db'
+          PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION: 'yes'
+
+  # Real-Postgres lane. The unit suite above runs on SQLite (zero-setup, fast).
+  # But prod is PostgreSQL, and the ~2-month login outage (PR #79) came from
+  # SQLite-vs-Postgres drift that dev never saw. This job runs the SAME suite
+  # against a real Postgres 16 so any engine-specific divergence fails CI here,
+  # not in prod. The harness (server/src/test/setup.ts) switches to the pg
+  # adapter when TEST_DATABASE_URL is a postgres:// URL.
+  test-server-postgres:
+    name: Server Tests (Postgres)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    # The job runs INSIDE a container so the `postgres` service alias resolves.
+    # On a bare hosted runner the alias only exists on the service network and
+    # every DB-backed test file failed with P1001 (main was red 09-03..09-04).
+    container: node:22-bookworm
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: threatforge_test
+        # No host port mapping: the job reaches the service by its network alias
+        # (postgres:5432), so publishing 5432 to the runner host is unnecessary —
+        # and actively harmful, since two concurrent server-CI runs on the same
+        # act_runner would collide ("Bind for 0.0.0.0:5432 failed: port is
+        # already allocated"). Container-network only.
+        # Data dir on tmpfs (RAM): the test DB is ephemeral and gets dropped/
+        # recreated per test file (prisma db push --force-reset), so durability is
+        # pointless. tmpfs sidesteps runner disk pressure — observed FATAL "could
+        # not write init file" on CREATE DATABASE when the act_runner overlay was
+        # near-full under concurrent load — and speeds up the reset cycles.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+          --tmpfs /var/lib/postgresql/data
+      # Redis for the BullMQ fan-out and stage-cache integration tests
+      # (ai-flow*.integration, stage-cache.integration). Without it they skip,
+      # so the partial-failure/retry parity check only ever ran locally.
+      # Same container-network-only, no-persistence setup as postgres.
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect server changes
+        id: ch
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            git fetch origin "${{ github.base_ref }}" --depth=1 >/dev/null 2>&1 || true
+            files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" 2>/dev/null || git diff --name-only HEAD~1 2>/dev/null || echo "")
+            # ci.yml itself counts: a change to this lane's services must run it.
+            if echo "$files" | grep -qE '^server/|^\.github/workflows/ci\.yml$'; then
+              echo "run=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "server/ untouched — skipping Postgres lane"
+              echo "run=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Setup Node.js
+        if: steps.ch.outputs.run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        if: steps.ch.outputs.run == 'true'
+        run: npm ci || (echo "npm ci failed — clearing cache and retrying" && npm cache clean --force && sleep 5 && npm ci)
+        working-directory: server
+
+      # Prisma bakes the provider into the generated client, so a Postgres run
+      # needs a client generated from a postgres-provider schema. The checked-in
+      # schema is sqlite; flip it IN PLACE and generate. This checkout is
+      # ephemeral (no restore needed), and the frontend schema drift-guard runs
+      # in a separate job on its own checkout, so this flip cannot affect it.
+      - name: Generate Prisma client (postgres)
+        if: steps.ch.outputs.run == 'true'
+        run: |
+          sed -i 's/provider = "sqlite"/provider = "postgresql"/' prisma/schema/00-config.prisma
+          npx prisma generate
+        working-directory: server
+
+      - name: Run tests against Postgres
+        if: steps.ch.outputs.run == 'true'
+        run: npx vitest run
+        working-directory: server
+        env:
+          # Host is the SERVICE NAME, not localhost: the Gitea act_runner runs
+          # this job in its own container and attaches the postgres service as a
+          # sibling on a shared network, reachable by its service label. (GitHub-
+          # hosted runners map services onto localhost; act_runner does not.)
+          TEST_DATABASE_URL: 'postgresql://postgres:postgres@postgres:5432/threatforge_test'
+          DATABASE_URL: 'postgresql://postgres:postgres@postgres:5432/threatforge_test'
+          TEST_REDIS_URL: 'redis://redis:6379'
+          PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION: 'yes'
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    needs: [test-frontend, test-server, test-server-postgres]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: ch
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "fe=true" >> "$GITHUB_OUTPUT"; echo "be=true" >> "$GITHUB_OUTPUT"
+          else
+            git fetch origin "${{ github.base_ref }}" --depth=1 >/dev/null 2>&1 || true
+            files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" 2>/dev/null || git diff --name-only HEAD~1 2>/dev/null || echo "")
+            if echo "$files" | grep -qE '^frontend/'; then echo "fe=true" >> "$GITHUB_OUTPUT"; else echo "fe=false" >> "$GITHUB_OUTPUT"; fi
+            if echo "$files" | grep -qE '^server/'; then echo "be=true" >> "$GITHUB_OUTPUT"; else echo "be=false" >> "$GITHUB_OUTPUT"; fi
+          fi
+
+      - name: Setup Node.js
+        if: steps.ch.outputs.fe == 'true' || steps.ch.outputs.be == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            frontend/package-lock.json
+            server/package-lock.json
+
+      # Server deps are needed whenever EITHER side builds: the frontend's
+      # `next build` type-checks against the backend-synced Prisma client.
+      - name: Install server dependencies
+        if: steps.ch.outputs.fe == 'true' || steps.ch.outputs.be == 'true'
+        run: npm ci || (echo "npm ci failed — clearing cache and retrying" && npm cache clean --force && sleep 5 && npm ci)
+        working-directory: server
+
+      - name: Generate Prisma client
+        if: steps.ch.outputs.fe == 'true' || steps.ch.outputs.be == 'true'
+        run: npx prisma generate
+        working-directory: server
+
+      - name: Install frontend dependencies
+        if: steps.ch.outputs.fe == 'true'
+        run: npm ci || (echo "npm ci failed — clearing cache and retrying" && npm cache clean --force && sleep 5 && npm ci)
+        working-directory: frontend
+
+      # frontend has its own Prisma schema/client (synced from backend); `next
+      # build` type-checks code importing the Prisma namespace and fails on a
+      # fresh `npm ci` without this. No postinstall hook generates it.
+      - name: Generate frontend Prisma client
+        if: steps.ch.outputs.fe == 'true'
+        run: npx prisma generate
+        working-directory: frontend
+
+      - name: Build frontend
+        if: steps.ch.outputs.fe == 'true'
+        run: npm run build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: 'http://localhost:3001'
+
+      - name: Build server
+        if: steps.ch.outputs.be == 'true'
+        run: npm run build
+        working-directory: server
+
+  # npm audit (critical blocks) + gitleaks + opengrep house rules, via the same
+  # script the pre-push gate runs. Not path-filtered: a new advisory or a
+  # leaked secret matters whatever the PR touched. Runs on push, PR and the
+  # weekly schedule. security.yml (npm audit + Trivy + CodeQL) never ran on
+  # Gitea, which is how prod shipped a Next.js with critical advisories.
+  # Tools are pinned and sha256-verified; if a download fails the script
+  # prints "SKIPPED: <tool> not installed" for that step instead of passing
+  # silently (npm audit still blocks).
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: '8.30.1'
+      GITLEAKS_SHA256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
+      OPENGREP_VERSION: '1.25.0'
+      OPENGREP_SHA256: '9ac4aebb47ba3f7b0d8fc641ac8749cb6c2f253f616131a67d9631e00d4bea33'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install gitleaks + opengrep (pinned, sha256-verified)
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          tmp="$(mktemp -d)"
+          if curl -fsSL -o "$tmp/gl.tgz" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+             && echo "${GITLEAKS_SHA256}  $tmp/gl.tgz" | sha256sum -c - \
+             && tar -xzf "$tmp/gl.tgz" -C "$tmp" gitleaks; then
+            install -m 0755 "$tmp/gitleaks" "$HOME/.local/bin/gitleaks"
+          else
+            echo "::warning::gitleaks download/verify failed — the secret scan will be SKIPPED"
+          fi
+          if curl -fsSL -o "$tmp/opengrep" "https://github.com/opengrep/opengrep/releases/download/v${OPENGREP_VERSION}/opengrep_manylinux_x86" \
+             && echo "${OPENGREP_SHA256}  $tmp/opengrep" | sha256sum -c -; then
+            install -m 0755 "$tmp/opengrep" "$HOME/.local/bin/opengrep"
+          else
+            echo "::warning::opengrep download/verify failed — house rules will be SKIPPED"
+          fi
+
+      # PR: scan only what the PR adds (gitleaks on base..HEAD, opengrep new
+      # findings vs the merge base). Push / schedule: gitleaks over full
+      # history (~5 s) and opengrep over the whole tree.
+      - name: Security scan
+        env:
+          SCAN_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+        run: |
+          if [ -n "$SCAN_BASE" ]; then git fetch origin "${{ github.base_ref }}" >/dev/null 2>&1 || true; fi
+          bash scripts/security-scan.sh --ci
+
+# E2E moved out of per-push CI into .github/workflows/e2e.yml (nightly schedule
+# + manual workflow_dispatch). The old e2e job here never booted the app stack
+# (no backend, no DB seed) so it always failed, and it ran on every push to
+# main — burning a runner slot per merge for a guaranteed-red, non-required
+# check. The new workflow self-boots backend + frontend against a seeded SQLite
+# DB and runs smoke + authenticated. Required checks remain: Standards /
+# Frontend / Server / Build.

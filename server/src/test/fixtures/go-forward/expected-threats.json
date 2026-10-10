@@ -1,0 +1,527 @@
+{
+  "_README": [
+    "RECALL DENOMINATOR \u2014 threats a competent security reviewer WOULD expect the",
+    "model to find on the go-forward fixture, whether or not it actually did.",
+    "",
+    "This file is the half a recorded snapshot can never contain. golden-threats.json",
+    "only holds what the model emitted, so on its own it can measure precision (of",
+    "what it said, how much was right?) but NEVER recall (of what was real, how much",
+    "did it find?). Without this file a prompt change that quietly stops finding a",
+    "whole class of threat is invisible.",
+    "",
+    "Add entries by hand. Keep them at the abstraction level the product should",
+    "produce \u2014 the threat CLASS plus the affected asset or path, not an",
+    "implementation instance. 'If one mitigation closes both, it is one threat.'",
+    "",
+    "  componentId  must match a component in the fixture, or 'compound' for",
+    "               threats that span components",
+    "  category     STRIDE category",
+    "  match        substrings, ANY of which marks this expectation satisfied.",
+    "               Matched case-insensitively against the normalized threat name,",
+    "               so wording drift does not produce a false miss.",
+    "  rationale    why a reviewer expects this \u2014 the record of the judgement",
+    "",
+    "Start with the obvious misses. A short, high-confidence list beats a long",
+    "speculative one: every entry here becomes a recall failure the team must",
+    "either fix or consciously accept."
+  ],
+  "_meta": {
+    "fixture": "go-forward",
+    "authoredBy": "security review \u2014 architecture-derived, not copied from golden",
+    "authoredAt": "2026-08-17",
+    "method": [
+      "Derived from fixture-model.json (12 components, 15 connections) by reading",
+      "trust levels, data classifications, documented existingControls and per-edge",
+      "protocol/auth/encryption \u2014 NOT by reading golden-threats.json. An expectation",
+      "list written from the model's own output would score 100% and measure nothing.",
+      "",
+      "Entries are at CLASS grain per the register's \u00a75 rule: if one mitigation closes",
+      "both, it is one threat. Where a threat spans two components, it is filed against",
+      "the component that would implement the mitigation.",
+      "",
+      "Deliberately short and high-confidence. Every entry here is a recall failure the",
+      "team must either fix or consciously accept, so speculative entries cost more",
+      "than they reveal.",
+      "",
+      "2026-08-17 \u2014 widened from 10 to 40. At 10 entries each expectation was worth 10 points of recall, so a single flickering finding swamped the metric and the ABSENT set reshuffled between samples. Entries are NOT written where a declared existingControl already covers the class: the prompt instructs the model to respect controls, so expecting the threat anyway would penalise obedience."
+    ]
+  },
+  "expected": [
+    {
+      "componentId": "comp-redis",
+      "category": "INFORMATION_DISCLOSURE",
+      "match": [
+        "unencrypted",
+        "plaintext",
+        "in transit",
+        "cleartext"
+      ],
+      "rationale": "Both edges into Redis carry encrypted=false while transporting session tokens and CONFIDENTIAL catalog data; the fixture even labels one 'Plaintext on the internal subnet \u2014 flagged risk'. Redis documents no existingControls at all.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-postgres",
+      "category": "SPOOFING",
+      "match": [
+        "basic auth",
+        "credential",
+        "interception"
+      ],
+      "rationale": "All three service\u2192Postgres edges authenticate with 'Basic' while carrying RESTRICTED data (PII, password hashes, invoices). Reusable static credentials on the system of record are a first-pass finding.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-web-portal",
+      "category": "SPOOFING",
+      "match": [
+        "session",
+        "token replay",
+        "hijack"
+      ],
+      "rationale": "The end-user\u2192portal edge is authentication=None and 'anonymous until login; session cookie afterwards', so session establishment is the trust hinge for a PUBLIC-facing component handling PII and cart contents.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-api-gateway",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "match": [
+        "jwt",
+        "role",
+        "privilege",
+        "authorization"
+      ],
+      "rationale": "Kong is the single JWT validation and routing choke point between the DMZ and INTERNAL zone. If its claim handling is wrong, every downstream authorization decision inherits the error.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-auth-service",
+      "category": "SPOOFING",
+      "match": [
+        "password reset",
+        "reset token",
+        "account recovery",
+        "forgot password"
+      ],
+      "rationale": "The Auth Service description names password reset flows explicitly, and reset is the classic authentication bypass path (predictable or replayable reset tokens, reset-link leakage). It is the identity component, so a spoofing class here is expected.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-auth-service",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "match": [
+        "mfa",
+        "multi factor",
+        "multifactor",
+        "second factor",
+        "2fa"
+      ],
+      "rationale": "'MFA secrets' is a declared dataType on this component. A second factor that can be skipped, re-enrolled, or brute-forced is a privilege escalation, and MFA appears nowhere in the current output.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-billing-service",
+      "category": "SPOOFING",
+      "match": [
+        "webhook",
+        "callback",
+        "charge notification",
+        "signature verification"
+      ],
+      "rationale": "Stripe 'returns charge results via webhook' per the payment-gateway description, but no inbound webhook edge is modelled and no signature verification is documented \u2014 a forged callback marks an unpaid order as paid. Filed against Billing because Billing implements the verification; one mitigation closes both sides, so it is one threat.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-postgres",
+      "category": "INFORMATION_DISCLOSURE",
+      "match": [
+        "backup",
+        "snapshot",
+        "dump",
+        "replica",
+        "export"
+      ],
+      "rationale": "The component documents TDE and 'daily snapshots', but TDE protects the live volume \u2014 snapshot encryption, retention and access are not documented anywhere. A copy of the system of record is the highest-value disclosure path for a store holding PII and password hashes. (NB: the shipped example entry claimed 'no backup control documented', which the fixture contradicts \u2014 daily backups ARE listed. The gap is snapshot handling, not backup existence.)",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-email-provider",
+      "category": "INFORMATION_DISCLOSURE",
+      "match": [
+        "password reset",
+        "reset link",
+        "email content",
+        "pii",
+        "third party"
+      ],
+      "rationale": "SendGrid carries password-reset mail and order summaries \u2014 CONFIDENTIAL data leaving the trust boundary to an EXTERNAL_PARTNER. Reset links transiting a third party is a disclosure class distinct from the API-key handling already covered.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-redis",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "match": [
+        "session",
+        "forge",
+        "impersonat",
+        "write",
+        "inject"
+      ],
+      "rationale": "Redis is the session store, reachable with a shared API_KEY and no documented ACL. Anyone who can write a session key can mint an identity. Distinct from the transit-encryption class above: TLS does not fix it, authorization does.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-web-portal",
+      "category": "TAMPERING",
+      "match": [
+        "price",
+        "cart",
+        "parameter",
+        "quantity"
+      ],
+      "rationale": "Checkout submits cart contents from an UNTRUSTED actor over an auth=None edge. Server-authoritative pricing is the control; nothing in the fixture documents it, and WAF/CSP do not address business-logic tampering.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-web-portal",
+      "category": "INFORMATION_DISCLOSURE",
+      "match": [
+        "session token",
+        "client side",
+        "localstorage",
+        "browser"
+      ],
+      "rationale": "Declares session tokens and PII as dataTypes on a PUBLIC-access component. CSP headers reduce XSS delivery but do not govern where the app itself puts tokens.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-api-gateway",
+      "category": "SPOOFING",
+      "match": [
+        "replay",
+        "expiry",
+        "exp claim",
+        "lifetime"
+      ],
+      "rationale": "Kong validates JWTs, but validity is not freshness: a captured token replays until expiry, and no token lifetime or binding is documented on the DMZ\u2192internal hop.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-api-gateway",
+      "category": "INFORMATION_DISCLOSURE",
+      "match": [
+        "token",
+        "log",
+        "verbose",
+        "error"
+      ],
+      "rationale": "JWT tokens are a declared dataType on a component whose job is to see every request. Token capture from access logs or verbose errors is the standard gateway disclosure class.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-api-gateway",
+      "category": "REPUDIATION",
+      "match": [
+        "audit",
+        "logging",
+        "validation failure"
+      ],
+      "rationale": "The single authentication decision point for the whole system. Without an audit trail of validation failures, credential attacks are unreconstructable after the fact.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-core-api",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "match": [
+        "idor",
+        "object level",
+        "authorization",
+        "ownership",
+        "order"
+      ],
+      "rationale": "Orchestrates order and billing operations carrying PII and auth claims, with no declared authorization control. Object-level authorization is the class an analyst expects on any resource-scoped API.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-core-api",
+      "category": "INFORMATION_DISCLOSURE",
+      "match": [
+        "verbose",
+        "error",
+        "internal",
+        "stack"
+      ],
+      "rationale": "SOC2-scoped component handling PII with no error-handling control documented.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-core-api",
+      "category": "TAMPERING",
+      "match": [
+        "input validation",
+        "order data",
+        "injection"
+      ],
+      "rationale": "Accepts order data from the DMZ and forwards it to three internal services; it is the validation boundary for everything downstream.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-core-api",
+      "category": "DENIAL_OF_SERVICE",
+      "match": [
+        "grpc",
+        "message size",
+        "unbounded",
+        "payload"
+      ],
+      "rationale": "Fans out to three gRPC services with no declared size or concurrency limit.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-auth-service",
+      "category": "INFORMATION_DISCLOSURE",
+      "match": [
+        "password hash",
+        "mfa secret",
+        "credential",
+        "log"
+      ],
+      "rationale": "Declares password hashes, MFA secrets and refresh tokens as dataTypes. argon2 protects hashes at rest against cracking; it does not stop them reaching logs or error responses.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-auth-service",
+      "category": "DENIAL_OF_SERVICE",
+      "match": [
+        "argon2",
+        "cpu",
+        "exhaustion",
+        "login",
+        "hashing"
+      ],
+      "rationale": "argon2 is a documented control and is deliberately expensive \u2014 which makes unthrottled login attempts a CPU-exhaustion vector. The control creates the threat; no rate limit is declared on this component.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-auth-service",
+      "category": "REPUDIATION",
+      "match": [
+        "audit",
+        "token issuance",
+        "logging"
+      ],
+      "rationale": "Issues the credentials every other component trusts. Without an issuance audit trail, a forged-token incident cannot be scoped.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-order-service",
+      "category": "TAMPERING",
+      "match": [
+        "sql",
+        "injection",
+        "order"
+      ],
+      "rationale": "Writes order records to Postgres with no declared query-parameterization or validation control.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-order-service",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "match": [
+        "authorization",
+        "order",
+        "ownership"
+      ],
+      "rationale": "Exposes order lifecycle operations over gRPC; mTLS authenticates the caller but does not authorize the action.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-order-service",
+      "category": "REPUDIATION",
+      "match": [
+        "audit",
+        "order",
+        "logging"
+      ],
+      "rationale": "Owns the order lifecycle \u2014 the record a customer or merchant would dispute.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-billing-service",
+      "category": "INFORMATION_DISCLOSURE",
+      "match": [
+        "payment token",
+        "log",
+        "error",
+        "invoice"
+      ],
+      "rationale": "PCI-DSS scoped, declares payment tokens as a dataType, and documents no control. Token leakage through logs or error paths is the first thing an assessor looks for.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-billing-service",
+      "category": "TAMPERING",
+      "match": [
+        "amount",
+        "charge",
+        "invoice",
+        "manipulation"
+      ],
+      "rationale": "Creates charges against a third-party gateway. If the amount is attacker-influenceable anywhere on the path, the loss is direct and monetary.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-billing-service",
+      "category": "REPUDIATION",
+      "match": [
+        "audit",
+        "charge",
+        "logging",
+        "non repudiation"
+      ],
+      "rationale": "PCI-DSS Req 10 exists for this: financial operations need an attributable trail.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-postgres",
+      "category": "TAMPERING",
+      "match": [
+        "sql",
+        "injection",
+        "write"
+      ],
+      "rationale": "System of record for users, orders and invoices, written by three services none of which declare a parameterization control.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-postgres",
+      "category": "REPUDIATION",
+      "match": [
+        "audit",
+        "logging",
+        "password hash",
+        "write"
+      ],
+      "rationale": "Holds password hashes and invoices. least-privilege roles limit who may write; they do not record who did.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-redis",
+      "category": "TAMPERING",
+      "match": [
+        "cache poison",
+        "poisoning",
+        "integrity",
+        "inject"
+      ],
+      "rationale": "Session store and catalog cache with no declared control and a shared API_KEY. Cache entries carry no integrity protection, so a write is indistinguishable from a legitimate one.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-redis",
+      "category": "DENIAL_OF_SERVICE",
+      "match": [
+        "memory",
+        "eviction",
+        "unbounded",
+        "exhaustion"
+      ],
+      "rationale": "Holds sessions and catalog data with no declared eviction policy or memory bound \u2014 filling it logs every user out.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-rabbitmq",
+      "category": "TAMPERING",
+      "match": [
+        "integrity",
+        "message",
+        "signing",
+        "payload"
+      ],
+      "rationale": "Carries order-placed and invoice-created events between services. Consumers act on messages they cannot verify.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-rabbitmq",
+      "category": "SPOOFING",
+      "match": [
+        "identity",
+        "publisher",
+        "binding",
+        "shared credential"
+      ],
+      "rationale": "Both publishers authenticate with Basic over a shared credential, so the broker cannot attribute a message to a specific service.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-rabbitmq",
+      "category": "DENIAL_OF_SERVICE",
+      "match": [
+        "flood",
+        "unbounded",
+        "queue depth",
+        "publishing"
+      ],
+      "rationale": "No declared rate limit or queue bound on the async backbone; a flood stalls order and billing processing together.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-rabbitmq",
+      "category": "INFORMATION_DISCLOSURE",
+      "match": [
+        "at rest",
+        "queue",
+        "persisted",
+        "message"
+      ],
+      "rationale": "Order and billing events sit in the broker. Transport is encrypted; storage inside the broker is undocumented.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-payment-gateway",
+      "category": "INFORMATION_DISCLOSURE",
+      "match": [
+        "api key",
+        "credential",
+        "secret",
+        "exposure"
+      ],
+      "rationale": "Reached with an API_KEY that authorizes real charges. Where that key lives and how it rotates is undocumented.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-payment-gateway",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "match": [
+        "authorization",
+        "charge",
+        "creation"
+      ],
+      "rationale": "Charge creation is the highest-value operation in the system; who may invoke it is an application-side control that is not documented.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-email-provider",
+      "category": "TAMPERING",
+      "match": [
+        "injection",
+        "header",
+        "content",
+        "template"
+      ],
+      "rationale": "Sends order confirmations and password-reset mail built from application input. Header or content injection turns transactional mail into a phishing channel.",
+      "enabled": true
+    },
+    {
+      "componentId": "comp-end-user",
+      "category": "SPOOFING",
+      "match": [
+        "credential stuffing",
+        "account takeover",
+        "brute force",
+        "session"
+      ],
+      "rationale": "The only UNTRUSTED actor, entering over an auth=None edge. Account takeover against the public entry point is the highest-frequency real-world attack on a commerce platform.",
+      "enabled": true
+    }
+  ]
+}

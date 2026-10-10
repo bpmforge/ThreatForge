@@ -1,0 +1,68 @@
+// =============================================================================
+// Custom Compliance Framework Models
+// =============================================================================
+
+model CustomComplianceFramework {
+  id             String  @id @default(cuid())
+  organizationId String?
+  name           String
+  shortName      String
+  description    String?
+  version        String?
+  url            String?
+  color          String  @default("#6366f1")
+
+  isPublic          Boolean @default(false)
+  inheritedControls String  @default("{}")
+
+  categories CustomFrameworkCategory[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  @@unique([organizationId, shortName])
+  @@index([organizationId])
+  @@index([isPublic])
+  @@map("custom_compliance_frameworks")
+}
+
+model CustomFrameworkCategory {
+  id          String                    @id @default(cuid())
+  frameworkId String
+  framework   CustomComplianceFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  sortOrder   Int                       @default(0)
+
+  controls CustomFrameworkControl[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([frameworkId, name])
+  @@index([frameworkId])
+  @@map("custom_framework_categories")
+}
+
+model CustomFrameworkControl {
+  id          String                  @id @default(cuid())
+  categoryId  String
+  category    CustomFrameworkCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  controlId   String
+  name        String
+  description String
+  severity    Severity                @default(MEDIUM)
+  sortOrder   Int                     @default(0)
+
+  strideCategories String @default("[]")
+  keywords         String @default("[]")
+  mappedControls   String @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([categoryId, controlId])
+  @@index([categoryId])
+  @@map("custom_framework_controls")
+}

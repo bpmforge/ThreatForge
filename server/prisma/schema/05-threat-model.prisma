@@ -1,0 +1,174 @@
+// =============================================================================
+// Threat Model Models
+// =============================================================================
+
+model ThreatModel {
+  id      String      @id @default(cuid())
+  name    String
+  version Int         @default(1)
+  status  ModelStatus @default(DRAFT)
+  tags    String      @default("[]")
+
+  canvasState        String  @default("{\"nodes\":[],\"edges\":[],\"viewport\":{\"x\":0,\"y\":0,\"zoom\":1}}")
+  collaborationState String?
+
+  project          Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId        String
+  createdBy        User                 @relation("ModelCreator", fields: [createdById], references: [id])
+  createdById      String
+  components       Component[]
+  connections      Connection[]
+  boundaries       Boundary[]
+  threats          Threat[]
+  versions         ThreatModelVersion[]
+  dfds             DataFlowDiagram[]
+  sequenceDiagrams SequenceDiagram[]
+  ciScans          CIScan[]
+  guestAccess      ModelAccess[]
+  aiJobs           AiJob[]
+  dependencies     Dependency[]
+  requirements     Requirement[]
+  documents        Document[]
+  attackChains     AttackChain[]
+  architecturalMitigations ArchitecturalMitigation[]
+  attestations     ThreatModelAttestation[]
+
+  // Inheritance — optional parent model; child inherits parent threats on demand
+  parentModel   ThreatModel?  @relation("ModelInheritance", fields: [parentModelId], references: [id])
+  parentModelId String?
+  childModels   ThreatModel[] @relation("ModelInheritance")
+
+  // Business context for risk weighting (A23)
+  businessImpact     BusinessImpact?     // null = not configured
+  dataClassification DataClassification? // null = not configured
+  regulatoryScope    String              @default("[]") // JSON array of RegulatoryScopeFlag strings
+  userBase           UserBase?           // null = not configured
+  revenueImpact      RevenueImpact?      // null = not configured
+
+  // Incremental analysis tracking
+  mitigationsStaleAt DateTime? // Set when a requirements doc is uploaded; cleared after REFRESH_MITIGATIONS
+
+  // Scheduled / triggered re-analysis (#60, G1, #64)
+  reanalysisSchedule String?   @default("none") // "none" | "weekly" | "on-change"
+  lastReanalysisAt   DateTime? // When the freshness worker last enqueued an auto re-analysis
+  reanalysisHash     String? // Canvas hash at last auto re-analysis — re-run only when it changes
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([projectId])
+  @@index([parentModelId])
+  @@index([deletedAt])
+  @@index([projectId, deletedAt])
+  @@map("threat_models")
+}
+
+enum ModelStatus {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+// Business context enums (A23 — Business Context Risk Scoring)
+enum BusinessImpact {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DataClassification {
+  PUBLIC
+  INTERNAL
+  CONFIDENTIAL
+  RESTRICTED
+}
+
+enum UserBase {
+  INTERNAL
+  CUSTOMERS
+  PUBLIC
+}
+
+enum RevenueImpact {
+  NONE
+  INDIRECT
+  DIRECT
+  PRIMARY
+}
+
+model ModelAccess {
+  id String @id @default(cuid())
+
+  user       User?   @relation("ModelAccessUser", fields: [userId], references: [id], onDelete: Cascade)
+  userId     String?
+  guestEmail String?
+
+  threatModel    ThreatModel  @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId  String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  role           GuestRole @default(VIEWER)
+  canExport      Boolean   @default(false)
+  expiresAt      DateTime?
+  accessToken    String    @unique
+  allowedIps     String?
+  allowedDomains String?
+
+  grantedBy      User      @relation("ModelAccessGrantor", fields: [grantedById], references: [id])
+  grantedById    String
+  lastAccessedAt DateTime?
+  accessCount    Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, threatModelId])
+  @@index([guestEmail, threatModelId])
+  @@index([accessToken])
+  @@index([expiresAt])
+  @@map("model_access")
+}
+
+model ThreatModelVersion {
+  id             String  @id @default(cuid())
+  version        Int
+  canvasState    String
+  changesSummary String?
+
+  /// Document IDs that were in scope when this version was created
+  documentIds String? @default("[]")
+
+  threatModel   ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+  createdById   String
+
+  createdAt DateTime @default(now())
+
+  @@unique([threatModelId, version])
+  @@index([threatModelId, createdAt])
+  @@map("threat_model_versions")
+}
+
+// Model-level sign-off / attestation (#57, G3). An auditable record that a
+// named user attests the model is complete as of a point in time, optionally
+// anchored to a release. Baseline timestamp for the delta-since-sign-off view (#61).
+model ThreatModelAttestation {
+  id String @id @default(cuid())
+
+  threatModel   ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+  attestedBy    User        @relation("AttestationUser", fields: [userId], references: [id])
+  userId        String
+
+  releaseRef String? // e.g. "v2.3.0" or a release/PR URL
+  summary    String? // Free-text attestation note
+
+  attestedAt DateTime @default(now())
+
+  @@index([threatModelId, attestedAt])
+  @@map("threat_model_attestations")
+}

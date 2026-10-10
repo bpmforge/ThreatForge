@@ -1,0 +1,44 @@
+# Optional SAML 2.0 SSO broker (BoxyHQ Jackson). Add this file to the stack:
+#   docker compose -f docker-compose.yml -f docker-compose.saml.yml up -d
+#   docker compose -f docker-compose.prod.yml -f docker-compose.saml.yml up -d
+# Jackson must be reachable by browsers at JACKSON_EXTERNAL_URL (in production,
+# publish it on its own HTTPS hostname through nginx). Set
+# AUTH_BOXYHQ_SAML_ISSUER to the same URL and enable SAML in Admin > Settings.
+# JACKSON_API_KEYS lets its holder manage SAML connections, so keep it secret
+# (openssl rand -base64 32). See docs/DEPLOYMENT.md "SAML SSO".
+
+services:
+  jackson:
+    image: boxyhq/jackson:${JACKSON_VERSION:-26.2.0}
+    restart: unless-stopped
+    networks:
+      - backend
+      - frontend
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      # Loopback only by default; put nginx in front for other machines.
+      - "${JACKSON_BIND:-127.0.0.1}:${JACKSON_PORT:-5225}:5225"
+    environment:
+      DB_ENGINE: sql
+      DB_TYPE: postgres
+      DB_URL: postgres://${POSTGRES_USER:-flowuser}:${POSTGRES_PASSWORD:-flowpass}@db:5432/${POSTGRES_DB:-flowthreat}
+      EXTERNAL_URL: ${JACKSON_EXTERNAL_URL:?set JACKSON_EXTERNAL_URL (browser-reachable URL of Jackson)}
+      NEXTAUTH_URL: ${JACKSON_EXTERNAL_URL}
+      NEXTAUTH_SECRET: ${JACKSON_NEXTAUTH_SECRET:?set JACKSON_NEXTAUTH_SECRET (openssl rand -base64 32)}
+      API_KEYS: ${JACKSON_API_KEYS:?set JACKSON_API_KEYS (openssl rand -base64 32)}
+      SAML_AUDIENCE: ${SAML_AUDIENCE:-https://saml.threatforge}
+      IDP_ENABLED: "true"
+      DB_TTL: "300"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://$$(hostname):5225/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+        reservations:
+          memory: 128M

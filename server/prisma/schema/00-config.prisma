@@ -1,0 +1,10 @@
+// Prisma Schema Configuration
+// Split from monolithic schema.prisma for maintainability
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}

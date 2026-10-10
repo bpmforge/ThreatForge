@@ -1,0 +1,30 @@
+{
+  "minLines": 15,
+  "format": ["typescript", "tsx", "javascript", "jsx"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.next/**",
+    "**/coverage/**",
+    "**/generated/**",
+    "**/__generated__/**",
+    "**/*.d.ts",
+    "**/__tests__/**",
+    "**/test/**",
+    "**/tests/**",
+    "**/test-utils/**",
+    "**/e2e/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/*.integration.test.ts",
+    "**/prisma/**",
+    "**/contracts/**",
+    "**/services/ai/component-types.ts",
+    "**/lib/component-types.ts"
+  ],
+  "gitignore": true,
+  "absolute": false
+}

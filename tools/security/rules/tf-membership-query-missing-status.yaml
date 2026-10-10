@@ -1,0 +1,33 @@
+rules:
+  - id: tf-membership-query-missing-status
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >
+      membership lookup in an API route without a `status` filter. A SUSPENDED
+      (or otherwise inactive) member still has a Membership row, so an access
+      decision built on this query keeps granting access after the member was
+      suspended. Add `status: "ACTIVE"` to the where clause. findUnique on the
+      `userId_organizationId` key cannot carry it: switch to findFirst with
+      status, or check `membership.status === "ACTIVE"` on the result. If the
+      query deliberately wants every status (admin listing, re-invite), add
+      `// nosemgrep: tf-membership-query-missing-status` with the reason.
+    paths:
+      include:
+        - "server/src/**"
+        - "tools/security/rules/fixtures/**"
+      exclude:
+        - "**/__tests__/**"
+        - "*.test.ts"
+    patterns:
+      - pattern-either:
+          - pattern: $P.membership.findFirst($ARG)
+          - pattern: $P.membership.findUnique($ARG)
+          - pattern: $P.membership.findMany($ARG)
+      - pattern-not: '$P.membership.$M({..., where: {..., status: $S, ...}, ...})'
+      - pattern-not: '$P.membership.$M({..., where: {..., AND: [..., {..., status: $S, ...}, ...], ...}, ...})'
+    metadata:
+      cwe: [285]
+      confidence: medium
+      # Bug class: suspended members kept access because the membership check
+      # matched any row. The tree was cleared to 0 un-annotated hits and the
+      # rule raised to ERROR, so any new hit fails the gate.

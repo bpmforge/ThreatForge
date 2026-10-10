@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "threatforge.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "threatforge.labels" . | nindent 4 }}
+data:
+  NODE_ENV: {{ .Values.config.nodeEnv | quote }}
+  PORT: {{ .Values.config.port | quote }}
+  HOST: "0.0.0.0"
+  CORS_ORIGIN: {{ include "threatforge.corsOrigin" . | quote }}
+  INTERNAL_API_URL: {{ printf "http://%s:%s" (include "threatforge.server.fullname" .) .Values.config.port | quote }}
+  NEXT_PUBLIC_API_URL: {{ printf "http://%s:%s" (include "threatforge.server.fullname" .) .Values.config.port | quote }}
+  {{- if .Values.ingress.enabled }}
+  NEXTAUTH_URL: {{ printf "https://%s" .Values.ingress.host | quote }}
+  AUTH_URL: {{ printf "https://%s" .Values.ingress.host | quote }}
+  {{- else }}
+  NEXTAUTH_URL: "http://localhost:3000"
+  AUTH_URL: "http://localhost:3000"
+  {{- end }}
+  AUTH_TRUST_HOST: "true"
+  REDIS_URL: {{ printf "redis://%s:6379" (include "threatforge.redisHost" .) | quote }}

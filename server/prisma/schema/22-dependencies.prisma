@@ -1,0 +1,42 @@
+// =============================================================================
+// Dependency / SOUP / OTS Models
+// =============================================================================
+
+model Dependency {
+  id          String         @id @default(cuid())
+  name        String // "gorilla/mux", "scikit-learn", "axios"
+  version     String? // "1.8.0"
+  type        DependencyType @default(DIRECT)
+  language    String? // "Go", "Python", "JavaScript"
+  riskLevel   DependencyRisk @default(MEDIUM)
+  description String?
+  knownVulns  String? // Known vulnerability notes
+
+  threatModel   ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+
+  // Extraction provenance
+  sourceDocument String? // Which doc it was found in
+  confidence     Float? // 0-1
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([threatModelId, name])
+  @@index([threatModelId])
+  @@map("dependencies")
+}
+
+enum DependencyType {
+  DIRECT // Direct project dependency
+  EXTERNAL // External managed service (AWS RDS, etc.)
+  OTS // Off-the-shelf software
+  SOUP // Software of Unknown Provenance
+}
+
+enum DependencyRisk {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}

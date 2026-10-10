@@ -1,0 +1,268 @@
+version: '3.8'
+
+# =============================================================================
+# ThreatForge - Local Development & Testing Stack
+# =============================================================================
+#
+# A complete, self-contained threat modeling environment inspired by n8n's
+# deployment architecture. Designed for easy local testing with Podman/Docker.
+#
+# USAGE:
+#   1. Copy .env.local.example to .env.local
+#   2. podman-compose -f docker-compose.local.yml up -d
+#   3. Open http://localhost:3000
+#
+# SERVICES:
+#   - PostgreSQL 17  : Primary database (required)
+#   - Redis 7        : Session cache & pub/sub (optional but recommended)
+#   - Ollama         : Local LLM inference (optional)
+#   - Server         : Fastify API backend
+#   - Frontend       : Next.js web application
+#
+# =============================================================================
+
+x-common-env: &common-env
+  TZ: ${TZ:-UTC}
+
+services:
+  # ===========================================================================
+  # PostgreSQL Database
+  # ===========================================================================
+  # Primary data store for threat models, users, organizations, etc.
+  # Uses Alpine variant for smaller image size.
+  db:
+    image: postgres:17-alpine
+    container_name: ftm-db
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      POSTGRES_USER: ${POSTGRES_USER:-flowthreat}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flowthreat_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-flowthreat}
+      # Performance tuning for development
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - ftm-backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-flowthreat} -d ${POSTGRES_DB:-flowthreat}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # ===========================================================================
+  # Redis Cache & Message Broker
+  # ===========================================================================
+  # Used for:
+  #   - Session management (distributed sessions)
+  #   - Real-time pub/sub for collaboration events
+  #   - Rate limiting counters
+  #   - Background job queues (future)
+  redis:
+    image: redis:7-alpine
+    container_name: ftm-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    environment:
+      <<: *common-env
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    networks:
+      - ftm-backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ===========================================================================
+  # Ollama Local LLM (Optional - for offline AI)
+  # ===========================================================================
+  # Run AI models locally without external API dependencies:
+  #   - llama3.2: General purpose (default)
+  #   - codellama: Code-focused analysis
+  #   - mistral: Fast inference
+  #
+  # First run will download models (~4GB for llama3.2)
+  # GPU acceleration requires nvidia-container-toolkit
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ftm-ollama
+    restart: unless-stopped
+    profiles:
+      - ai
+      - full
+    environment:
+      <<: *common-env
+      OLLAMA_HOST: 0.0.0.0
+      OLLAMA_KEEP_ALIVE: 5m
+      # Uncomment for GPU support (requires nvidia-container-toolkit)
+      # NVIDIA_VISIBLE_DEVICES: all
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    networks:
+      - ftm-backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    # Uncomment for GPU support with Podman
+    # devices:
+    #   - nvidia.com/gpu=all
+
+  # ===========================================================================
+  # Backend API Server (Fastify)
+  # ===========================================================================
+  # Core API server handling:
+  #   - REST API endpoints
+  #   - WebSocket connections for real-time collaboration
+  #   - Yjs CRDT document synchronization
+  #   - AI provider integration
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: ftm-server:local
+    container_name: ftm-server
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3001
+      HOST: 0.0.0.0
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-flowthreat}:${POSTGRES_PASSWORD:-flowthreat_dev}@db:5432/${POSTGRES_DB:-flowthreat}
+
+      # Security
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key-32chars!}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+
+      # Redis
+      REDIS_URL: redis://${REDIS_PASSWORD:+:${REDIS_PASSWORD}@}redis:6379
+
+      # AI Providers (optional)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+
+      # LM Studio - Local LLM on host machine
+      # Use host.containers.internal to reach host from container
+      LMSTUDIO_BASE_URL: ${LMSTUDIO_BASE_URL:-http://host.containers.internal:1234/v1}
+      LMSTUDIO_MODEL: ${LMSTUDIO_MODEL:-local-model}
+
+      # Node.js tuning
+      NODE_OPTIONS: "--max-old-space-size=512"
+    # Allow container to reach host machine (for LM Studio)
+    extra_hosts:
+      - "host.containers.internal:host-gateway"
+    ports:
+      - "${SERVER_PORT:-3001}:3001"
+    networks:
+      - ftm-backend
+      - ftm-frontend
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # Uncomment for hot reload in development:
+    # volumes:
+    #   - ./server/src:/app/src:ro
+
+  # ===========================================================================
+  # Frontend Application (Next.js)
+  # ===========================================================================
+  # Web application providing:
+  #   - Threat model canvas editor
+  #   - Real-time collaboration UI
+  #   - Dashboard and project management
+  #   - AI chat interface
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:3001}
+    image: ftm-frontend:local
+    container_name: ftm-frontend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      server:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      NODE_ENV: ${NODE_ENV:-development}
+
+      # Database (for Auth.js and API routes)
+      DATABASE_PROVIDER: postgresql
+      DATABASE_URL: postgresql://${POSTGRES_USER:-flowthreat}:${POSTGRES_PASSWORD:-flowthreat_dev}@db:5432/${POSTGRES_DB:-flowthreat}
+
+      # Auth.js configuration
+      AUTH_SECRET: ${AUTH_SECRET:-dev-auth-secret-change-in-production}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      AUTH_TRUST_HOST: "true"
+
+      # OAuth providers (optional)
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+
+      # Node.js tuning
+      NODE_OPTIONS: "--max-old-space-size=512"
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    networks:
+      - ftm-backend
+      - ftm-frontend
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  ftm-backend:
+    driver: bridge
+    name: ftm-backend
+  ftm-frontend:
+    driver: bridge
+    name: ftm-frontend
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    name: ftm-postgres-data
+  redis_data:
+    name: ftm-redis-data
+  ollama_data:
+    name: ftm-ollama-data

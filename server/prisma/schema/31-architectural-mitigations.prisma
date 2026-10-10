@@ -1,0 +1,54 @@
+// =============================================================================
+// Architectural Mitigations (VG-15 / E-D)
+//
+// AI-proposed changes to the model's ARCHITECTURE (add a WAF, add a trust
+// boundary, encrypt a connection, split a component) that address a cluster of
+// threats. Reviewed like threats and chains: AI_SUGGESTED → ACCEPTED /
+// REJECTED / MODIFIED. Ownership: only rows with source=AI and
+// status=AI_SUGGESTED are ever regenerated; MODIFIED/ACCEPTED/REJECTED and
+// HUMAN rows are never overwritten or deleted by an AI run.
+// Array fields are JSON-encoded string arrays (SQLite has no String[]).
+// =============================================================================
+
+enum ArchitecturalChangeKind {
+  ADD_WAF
+  ADD_TRUST_BOUNDARY
+  ENCRYPT_CONNECTION
+  SPLIT_COMPONENT
+  ADD_AUTHENTICATION
+  OTHER
+
+  @@map("architectural_change_kind")
+}
+
+enum ArchitecturalMitigationStatus {
+  AI_SUGGESTED
+  ACCEPTED
+  REJECTED
+  MODIFIED
+
+  @@map("architectural_mitigation_status")
+}
+
+model ArchitecturalMitigation {
+  id                   String                        @id @default(cuid())
+  threatModelId        String
+  threatModel          ThreatModel                   @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  kind                 ArchitecturalChangeKind
+  title                String
+  proposedChange       String // Summary of the architectural change
+  rationale            String?
+  affectedComponentIds String                        @default("[]") // JSON string[] of component node ids
+  affectedConnectionIds String                       @default("[]") // JSON string[] of connection edge ids
+  threatIds            String                        @default("[]") // JSON string[] of Threat.id addressed
+  attackChainIds       String                        @default("[]") // JSON string[] of AttackChain.id addressed
+  priority             Priority                      @default(MEDIUM)
+  status               ArchitecturalMitigationStatus @default(AI_SUGGESTED)
+  source               String                        @default("AI") // AI | HUMAN
+  sessionId            String?
+  createdAt            DateTime                      @default(now())
+  updatedAt            DateTime                      @updatedAt
+
+  @@index([threatModelId])
+  @@map("architectural_mitigations")
+}

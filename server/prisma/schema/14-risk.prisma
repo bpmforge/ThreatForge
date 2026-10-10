@@ -1,0 +1,53 @@
+// =============================================================================
+// Risk Scoring Framework Models
+// =============================================================================
+
+model RiskFramework {
+  id             String            @id @default(cuid())
+  organizationId String?
+  organization   Organization?     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  type           RiskFrameworkType
+  description    String?
+  config         String            @default("{}")
+  isDefault      Boolean           @default(false)
+  isActive       Boolean           @default(true)
+
+  riskScores ThreatRiskScore[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("risk_frameworks")
+}
+
+model ThreatRiskScore {
+  id          String        @id @default(cuid())
+  threatId    String
+  threat      Threat        @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  frameworkId String
+  framework   RiskFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+
+  factors String
+  score   Float
+  rating  String
+
+  calculatedAt   DateTime @default(now())
+  calculatedById String?
+
+  @@unique([threatId, frameworkId])
+  @@index([threatId])
+  @@index([frameworkId])
+  @@map("threat_risk_scores")
+}
+
+enum RiskFrameworkType {
+  OWASP_RISK_RATING
+  FAIR
+  CVSS
+  DREAD
+  CUSTOM
+}

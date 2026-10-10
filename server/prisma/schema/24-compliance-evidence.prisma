@@ -1,0 +1,75 @@
+// =============================================================================
+// Compliance Evidence & Control Implementation Tracking
+//
+// Enables audit-grade evidence linking: controls → threats → mitigations → evidence
+// =============================================================================
+
+model ControlImplementation {
+  id             String               @id @default(cuid())
+  threatModelId  String
+  framework      String // e.g., "HIPAA", "PCI_DSS", "NIST_800_53"
+  controlId      String // e.g., "164.312(a)(1)", "PCI-8.3.1", "AC-2"
+  controlName    String // Display name
+  status         ImplementationStatus @default(NOT_STARTED)
+  actualCoverage Float? // 0-100 manual override of computed coverage
+  ownerId        String? // Assigned team member
+  dueDate        DateTime?
+  completedDate  DateTime?
+  notes          String?
+  verifiedById   String? // Reviewer who verified
+  verifiedAt     DateTime?
+
+  evidence ControlEvidence[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+
+  @@unique([threatModelId, framework, controlId])
+  @@index([threatModelId])
+  @@index([framework])
+  @@index([status])
+  @@map("control_implementations")
+}
+
+model ControlEvidence {
+  id               String                @id @default(cuid())
+  implementationId String
+  implementation   ControlImplementation @relation(fields: [implementationId], references: [id], onDelete: Cascade)
+
+  evidenceType EvidenceType
+  title        String
+  description  String?
+  url          String? // Link to policy, Jira ticket, scan report, etc.
+  fileKey      String? // S3 key if uploaded
+  fileName     String?
+  fileSize     Int?
+
+  createdAt   DateTime @default(now())
+  createdById String
+
+  @@index([implementationId])
+  @@map("control_evidence")
+}
+
+enum ImplementationStatus {
+  NOT_STARTED
+  PLANNED
+  IN_PROGRESS
+  IMPLEMENTED
+  VERIFIED
+  NOT_APPLICABLE
+}
+
+enum EvidenceType {
+  POLICY_DOCUMENT
+  PROCEDURE
+  TEST_RESULT
+  SCAN_REPORT
+  JIRA_TICKET
+  GITHUB_ISSUE
+  SCREENSHOT
+  AUDIT_LOG
+  CONFIGURATION
+  OTHER
+}

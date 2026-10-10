@@ -1,0 +1,3617 @@
+// Prisma Schema for ThreatForge
+// AUTO-GENERATED from server/prisma/schema/*.prisma
+// Do not edit directly - run `npm run schema:sync` to regenerate
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =============================================================================
+// From: 01-user-auth.prisma
+// =============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  username      String?   @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  name          String
+  image         String?
+  avatarUrl     String?
+
+  // Account status
+  status              UserStatus @default(ACTIVE)
+  failedLoginAttempts Int        @default(0)
+  lockedUntil         DateTime?
+  lastLoginIp         String?
+
+  // Super admin flag
+  isSuperAdmin Boolean @default(false)
+
+  // Default organization
+  defaultOrganizationId String?
+
+  // Two-Factor Authentication
+  twoFactorEnabled     Boolean   @default(false)
+  twoFactorSecret      String?
+  twoFactorBackupCodes String?
+  twoFactorVerifiedAt  DateTime?
+
+  // Password reset — token is hashed (SHA-256) before storage; plaintext sent only in email
+  resetTokenHash   String?   @unique
+  resetTokenExpiry DateTime?
+  // Set on password reset; sessions and JWTs issued before it are rejected
+  passwordChangedAt DateTime?
+  /// "Sign out everywhere": tokens issued before this are rejected
+  sessionsRevokedAt DateTime?
+
+  // Email verification
+  verificationToken       String?   @unique
+  verificationTokenExpiry DateTime?
+
+  // User preferences
+  preferences String? @default("{}")
+
+  // SCIM provisioning
+  scimExternalId  String?
+  scimProvisioned Boolean @default(false)
+
+  // Soft delete
+  deletedAt DateTime?
+
+  // Auth.js relations
+  accounts     Account[]
+  sessions     Session[]
+  userSessions UserSession[]
+  apiTokens    ApiToken[]
+
+  // App relations
+  memberships         Membership[]
+  ownedOrganizations  Organization[] @relation("OrganizationOwner")
+  createdProjects     Project[]      @relation("ProjectCreator")
+  createdModels       ThreatModel[]  @relation("ModelCreator")
+  assignedMitigations Mitigation[]   @relation("MitigationAssignee")
+  assignedThreats     Threat[]       @relation("ThreatAssignee")
+  threatComments      ThreatComment[] @relation("ThreatCommentAuthor")
+  attestations        ThreatModelAttestation[] @relation("AttestationUser")
+  grantedModelAccess  ModelAccess[]  @relation("ModelAccessGrantor")
+  modelAccess         ModelAccess[]  @relation("ModelAccessUser")
+  sentInvitations     Membership[]   @relation("InvitationSender")
+
+  // Feature Expansion Relations
+  modelTemplates     ModelTemplate[]
+  integrations       Integration[]
+  libraryUsageEvents LibraryUsageEvent[]
+  aiJobs             AiJob[]             @relation("AiJobUser")
+  importedDocuments  Document[]          @relation("DocumentImporter")
+
+  // Audit
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastLoginAt DateTime?
+
+  @@map("users")
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  LOCKED
+  PENDING_DELETION
+  DELETED
+}
+
+// Auth.js required models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model UserSession {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  sessionToken String   @unique
+  userAgent    String?
+  browser      String?
+  os           String?
+  device       String?
+  ipAddress    String?
+  city         String?
+  country      String?
+  isCurrent    Boolean  @default(false)
+  lastActiveAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([userId])
+  @@index([sessionToken])
+  @@map("user_sessions")
+}
+
+model ApiToken {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String
+  tokenHash   String
+  tokenPrefix String
+  scopes      String @default("[]")
+
+  lastUsedAt DateTime?
+  usageCount Int       @default(0)
+  lastUsedIp String?
+  expiresAt  DateTime?
+  isActive   Boolean   @default(true)
+
+  createdAt     DateTime  @default(now())
+  revokedAt     DateTime?
+  revokedReason String?
+
+  @@index([userId])
+  @@index([tokenPrefix])
+  @@map("api_tokens")
+}
+
+// =============================================================================
+// From: 02-organization.prisma
+// =============================================================================
+
+model Organization {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  description String?
+  logoUrl     String?
+
+  type       OrgType @default(TEAM)
+  isPersonal Boolean @default(false)
+  owner      User?   @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  ownerId    String?
+
+  // Guest access settings
+  allowGuestAccess Boolean   @default(true)
+  guestDefaultRole GuestRole @default(VIEWER)
+  allowGuestExport Boolean   @default(false)
+
+  // Quotas
+  maxMembers          Int?
+  maxProjects         Int?
+  maxModelsPerProject Int?
+  /// Monthly AI spend cap in USD; null = unlimited. Enforced before enqueueing AI jobs (AI-SPEND).
+  monthlySpendCapUsd  Float?
+
+  // Settings
+  settings          String? @default("{}")
+  aiSettings        String? @default("{}")
+  threatMethodology String  @default("STRIDE")
+  /// AI provider routing policy: allow-cloud | local-only | prefer-local
+  aiRoutingPolicy   String  @default("allow-cloud")
+
+  // SSO Configuration
+  ssoEnabled  Boolean      @default(false)
+  ssoProvider SSOProvider?
+  ssoConfig   String?
+  ssoDomain   String?
+  ssoEnforced Boolean      @default(false)
+
+  // CI/CD Integration
+  ciWebhookSecret String?
+
+  // Soft delete
+  deletedAt DateTime?
+
+  // Relations
+  memberships                Membership[]
+  projects                   Project[]
+  threatLibraries            ThreatLibrary[]
+  componentTemplateLibraries ComponentTemplateLibrary[]
+  ciApiKeys                  CIApiKey[]
+  modelAccess                ModelAccess[]
+  aiProviders                AIProvider[]
+  webhooks                   Webhook[]
+  customRoles                CustomRole[]
+
+  // Feature Expansion Relations
+  customThreatCategories CustomThreatCategory[]
+  mitigationLibraries    MitigationLibrary[]
+  modelTemplates         ModelTemplate[]
+  riskFrameworks         RiskFramework[]
+  integrations           Integration[]
+  librarySubscriptions   LibrarySubscription[]
+  libraryUsageEvents     LibraryUsageEvent[]
+  publishedLibraries     LibraryPublication[]   @relation("PublishedFrom")
+  receivedLibraries      LibraryPublication[]   @relation("PublishedTo")
+  extensionInstalls      ExtensionInstall[] // unused since 2026-10-07, see 21-extensions.prisma
+
+  // AI Prompt Configuration
+  promptTemplates     PromptTemplate[]
+  documentTypeConfigs DocumentTypeConfig[]
+  promptPipelines     PromptPipeline[]
+  aiJobs              AiJob[]
+
+  scimTokens ScimToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("organizations")
+}
+
+model Webhook {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name         String
+  url          String
+  secret       String?
+  events       String  @default("[]")
+  isActive     Boolean @default(true)
+  maxRetries   Int     @default(3)
+  retryDelayMs Int     @default(1000)
+
+  lastTriggeredAt      DateTime?
+  lastSuccessAt        DateTime?
+  lastFailureAt        DateTime?
+  lastFailureReason    String?
+  consecutiveFailures  Int       @default(0)
+  totalDeliveries      Int       @default(0)
+  successfulDeliveries Int       @default(0)
+  failedDeliveries     Int       @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+
+  deliveries WebhookDelivery[]
+
+  @@index([organizationId])
+  @@index([isActive])
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id        String  @id @default(cuid())
+  webhookId String
+  webhook   Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  event       String
+  requestBody String? // first 10KB of serialized payload
+  statusCode  Int?
+  responseBody String? // first 1KB of response
+
+  status      WebhookDeliveryStatus @default(PENDING)
+  retryCount  Int                   @default(0)
+  nextRetryAt DateTime?
+
+  errorMessage String?
+
+  createdAt   DateTime  @default(now())
+  deliveredAt DateTime?
+
+  @@index([webhookId, createdAt])
+  @@index([status, nextRetryAt])
+  @@map("webhook_deliveries")
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  RETRYING
+  PERMANENTLY_FAILED
+}
+
+model CustomRole {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  color       String?
+  permissions String       @default("[]")
+  isSystem    Boolean      @default(false)
+  memberships Membership[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("custom_roles")
+}
+
+model AIProvider {
+  id        String         @id @default(cuid())
+  name      String
+  type      AIProviderType
+  isDefault Boolean        @default(false)
+  priority  Int            @default(0)
+  isEnabled Boolean        @default(true)
+
+  authType        AIAuthType @default(API_KEY)
+  encryptedApiKey String?
+  baseUrl         String?
+  model           String?
+
+  lastTestedAt   DateTime?
+  lastTestStatus AITestStatus?
+  lastTestError  String?
+
+  totalRequests     Int      @default(0)
+  totalTokens       Int      @default(0)
+  totalInputTokens  Int      @default(0)
+  totalOutputTokens Int      @default(0)
+  usageResetAt      DateTime @default(now())
+  estimatedCost     Float    @default(0)
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+
+  @@unique([organizationId, name])
+  @@index([organizationId, isEnabled, priority])
+  @@map("ai_providers")
+}
+
+// Enums
+enum Permission {
+  ORG_VIEW
+  ORG_EDIT
+  ORG_DELETE
+  ORG_MANAGE_MEMBERS
+  ORG_MANAGE_SSO
+  ORG_MANAGE_WEBHOOKS
+  ORG_VIEW_AUDIT
+  ORG_EXPORT_AUDIT
+  PROJECT_CREATE
+  PROJECT_VIEW
+  PROJECT_EDIT
+  PROJECT_DELETE
+  PROJECT_ARCHIVE
+  MODEL_CREATE
+  MODEL_VIEW
+  MODEL_EDIT
+  MODEL_DELETE
+  MODEL_EXPORT
+  MODEL_SHARE
+  MODEL_VERSION
+  THREAT_CREATE
+  THREAT_EDIT
+  THREAT_DELETE
+  THREAT_ASSIGN
+  MITIGATION_CREATE
+  MITIGATION_EDIT
+  MITIGATION_DELETE
+  MITIGATION_ASSIGN
+  AI_SUGGEST_THREATS
+  AI_CHAT
+  AI_ANALYZE
+  LIBRARY_VIEW
+  LIBRARY_EDIT
+  LIBRARY_CREATE
+  LIBRARY_DELETE
+}
+
+enum OrgType {
+  PERSONAL
+  TEAM
+  ENTERPRISE
+}
+
+enum SSOProvider {
+  SAML
+  OIDC
+  AZURE_AD
+  GOOGLE
+  OKTA
+}
+
+enum AIProviderType {
+  ANTHROPIC
+  OPENAI
+  AZURE_OPENAI
+  GOOGLE
+  OLLAMA
+  LMSTUDIO
+  OPENROUTER
+  CUSTOM
+}
+
+enum AIAuthType {
+  API_KEY
+  OAUTH
+  NONE
+}
+
+enum AITestStatus {
+  SUCCESS
+  FAILED
+  PENDING
+}
+
+enum GuestRole {
+  VIEWER
+  COMMENTER
+  EDITOR
+}
+
+// =============================================================================
+// From: 03-membership.prisma
+// =============================================================================
+
+model Membership {
+  id     String       @id @default(cuid())
+  role   MemberRole   @default(VIEWER)
+  status MemberStatus @default(ACTIVE)
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  customRole   CustomRole? @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+  customRoleId String?
+
+  // Invitation fields
+  invitedBy           User?     @relation("InvitationSender", fields: [invitedById], references: [id])
+  invitedById         String?
+  invitedAt           DateTime?
+  invitationToken     String?   @unique
+  invitationExpiresAt DateTime?
+  acceptedAt          DateTime?
+
+  // Suspension fields
+  suspendedBy      String?
+  suspendedAt      DateTime?
+  suspensionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, organizationId])
+  @@index([status])
+  @@index([invitationToken])
+  @@map("memberships")
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum MemberStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+// =============================================================================
+// From: 04-project.prisma
+// =============================================================================
+
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  createdBy      User            @relation("ProjectCreator", fields: [createdById], references: [id])
+  createdById    String
+  threatModels   ThreatModel[]
+  projectMembers ProjectMember[]
+  userStories    UserStory[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([organizationId])
+  @@index([deletedAt])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id   String      @id @default(cuid())
+  role ProjectRole @default(VIEWER)
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  userId    String
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ProjectRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+// =============================================================================
+// From: 05-threat-model.prisma
+// =============================================================================
+
+model ThreatModel {
+  id      String      @id @default(cuid())
+  name    String
+  version Int         @default(1)
+  status  ModelStatus @default(DRAFT)
+  tags    String      @default("[]")
+
+  canvasState        String  @default("{\"nodes\":[],\"edges\":[],\"viewport\":{\"x\":0,\"y\":0,\"zoom\":1}}")
+  collaborationState String?
+
+  project          Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId        String
+  createdBy        User                 @relation("ModelCreator", fields: [createdById], references: [id])
+  createdById      String
+  components       Component[]
+  connections      Connection[]
+  boundaries       Boundary[]
+  threats          Threat[]
+  versions         ThreatModelVersion[]
+  dfds             DataFlowDiagram[]
+  sequenceDiagrams SequenceDiagram[]
+  ciScans          CIScan[]
+  guestAccess      ModelAccess[]
+  aiJobs           AiJob[]
+  dependencies     Dependency[]
+  requirements     Requirement[]
+  documents        Document[]
+  attackChains     AttackChain[]
+  architecturalMitigations ArchitecturalMitigation[]
+  attestations     ThreatModelAttestation[]
+
+  // Inheritance — optional parent model; child inherits parent threats on demand
+  parentModel   ThreatModel?  @relation("ModelInheritance", fields: [parentModelId], references: [id])
+  parentModelId String?
+  childModels   ThreatModel[] @relation("ModelInheritance")
+
+  // Business context for risk weighting (A23)
+  businessImpact     BusinessImpact?     // null = not configured
+  dataClassification DataClassification? // null = not configured
+  regulatoryScope    String              @default("[]") // JSON array of RegulatoryScopeFlag strings
+  userBase           UserBase?           // null = not configured
+  revenueImpact      RevenueImpact?      // null = not configured
+
+  // Incremental analysis tracking
+  mitigationsStaleAt DateTime? // Set when a requirements doc is uploaded; cleared after REFRESH_MITIGATIONS
+
+  // Scheduled / triggered re-analysis (#60, G1, #64)
+  reanalysisSchedule String?   @default("none") // "none" | "weekly" | "on-change"
+  lastReanalysisAt   DateTime? // When the freshness worker last enqueued an auto re-analysis
+  reanalysisHash     String? // Canvas hash at last auto re-analysis — re-run only when it changes
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([projectId])
+  @@index([parentModelId])
+  @@index([deletedAt])
+  @@index([projectId, deletedAt])
+  @@map("threat_models")
+}
+
+enum ModelStatus {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+// Business context enums (A23 — Business Context Risk Scoring)
+enum BusinessImpact {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DataClassification {
+  PUBLIC
+  INTERNAL
+  CONFIDENTIAL
+  RESTRICTED
+}
+
+enum UserBase {
+  INTERNAL
+  CUSTOMERS
+  PUBLIC
+}
+
+enum RevenueImpact {
+  NONE
+  INDIRECT
+  DIRECT
+  PRIMARY
+}
+
+model ModelAccess {
+  id String @id @default(cuid())
+
+  user       User?   @relation("ModelAccessUser", fields: [userId], references: [id], onDelete: Cascade)
+  userId     String?
+  guestEmail String?
+
+  threatModel    ThreatModel  @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId  String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  role           GuestRole @default(VIEWER)
+  canExport      Boolean   @default(false)
+  expiresAt      DateTime?
+  accessToken    String    @unique
+  allowedIps     String?
+  allowedDomains String?
+
+  grantedBy      User      @relation("ModelAccessGrantor", fields: [grantedById], references: [id])
+  grantedById    String
+  lastAccessedAt DateTime?
+  accessCount    Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, threatModelId])
+  @@index([guestEmail, threatModelId])
+  @@index([accessToken])
+  @@index([expiresAt])
+  @@map("model_access")
+}
+
+model ThreatModelVersion {
+  id             String  @id @default(cuid())
+  version        Int
+  canvasState    String
+  changesSummary String?
+
+  /// Document IDs that were in scope when this version was created
+  documentIds String? @default("[]")
+
+  threatModel   ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+  createdById   String
+
+  createdAt DateTime @default(now())
+
+  @@unique([threatModelId, version])
+  @@index([threatModelId, createdAt])
+  @@map("threat_model_versions")
+}
+
+// Model-level sign-off / attestation (#57, G3). An auditable record that a
+// named user attests the model is complete as of a point in time, optionally
+// anchored to a release. Baseline timestamp for the delta-since-sign-off view (#61).
+model ThreatModelAttestation {
+  id String @id @default(cuid())
+
+  threatModel   ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+  attestedBy    User        @relation("AttestationUser", fields: [userId], references: [id])
+  userId        String
+
+  releaseRef String? // e.g. "v2.3.0" or a release/PR URL
+  summary    String? // Free-text attestation note
+
+  attestedAt DateTime @default(now())
+
+  @@index([threatModelId, attestedAt])
+  @@map("threat_model_attestations")
+}
+
+// =============================================================================
+// From: 06-components.prisma
+// =============================================================================
+
+model Component {
+  id          String        @id @default(cuid())
+  nodeId      String
+  type        ComponentType
+  name        String
+  description String?
+  trustLevel  TrustLevel    @default(MEDIUM)
+  properties  String        @default("{}")
+  positionX   Float
+  positionY   Float
+
+  // Rich metadata (from AI extraction or human input)
+  technology         String? // "PostgreSQL 17", "Redis 7", "TensorFlow"
+  dataClassification String? // "PUBLIC"|"INTERNAL"|"CONFIDENTIAL"|"RESTRICTED"
+  dataHandled        String  @default("[]") // JSON array: ["sensor_data","credentials","pii"]
+  accessPattern      String? // "PUBLIC_INTERNET"|"AUTHENTICATED_USERS"|"INTERNAL_ONLY"|"PARTNER_API"
+
+  // Notes (AI + human, separate so AI never overwrites human)
+  aiNotes       String? // AI-generated security context and analysis
+  engineerNotes String? // Human-written observations, decisions, rationale
+
+  // Extraction provenance
+  confidence     Float? // 0-1, how confident the AI was about this component
+  sourceText     String? // Quote from source document that identified this
+  sourceDocument String? // Which document it was extracted from
+
+  threatModel   ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+  boundary      Boundary?   @relation(fields: [boundaryId], references: [id], onDelete: SetNull)
+  boundaryId    String?
+
+  outgoingConnections Connection[]         @relation("ConnectionSource")
+  incomingConnections Connection[]         @relation("ConnectionTarget")
+  interfaces          ComponentInterface[]
+
+  dfdProcesses        DFDProcess[]
+  dfdDataStores       DFDDataStore[]
+  dfdExternalEntities DFDExternalEntity[]
+
+  // Incremental analysis tracking
+  analysisHash String? // SHA-256 of threat-surface-relevant fields + connection topology
+  analyzedAt   DateTime? // When AI last successfully analyzed this component
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([threatModelId, nodeId])
+  @@index([threatModelId])
+  @@map("components")
+}
+
+enum ComponentType {
+  EXTERNAL_USER
+  INTERNAL_USER
+  EXTERNAL_SYSTEM
+  SERVICE
+  API
+  FUNCTION
+  PROCESS
+  DATABASE
+  FILE_STORAGE
+  CACHE
+  QUEUE
+  LOAD_BALANCER
+  FIREWALL
+  API_GATEWAY
+}
+
+model ComponentInterface {
+  id                   String             @id @default(cuid())
+  interfaceId          String
+  name                 String
+  direction            InterfaceDirection @default(BIDIRECTIONAL)
+  position             InterfacePosition  @default(LEFT)
+  port                 Int?
+  protocol             Protocol?
+  authentication       AuthMethod?
+  encrypted            Boolean            @default(true)
+  dataClassifications  String             @default("[]")
+  externallyAccessible Boolean            @default(false)
+
+  component   Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  componentId String
+
+  sourceConnections Connection[] @relation("ConnectionSourceInterface")
+  targetConnections Connection[] @relation("ConnectionTargetInterface")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([componentId, interfaceId])
+  @@index([componentId])
+  @@map("component_interfaces")
+}
+
+enum InterfaceDirection {
+  INGRESS
+  EGRESS
+  BIDIRECTIONAL
+}
+
+enum InterfacePosition {
+  LEFT
+  RIGHT
+  TOP
+  BOTTOM
+}
+
+model Connection {
+  id                  String      @id @default(cuid())
+  edgeId              String
+  label               String?
+  protocol            Protocol?
+  authentication      AuthMethod?
+  dataTypes           String      @default("[]")
+  dataClassifications String      @default("[]")
+  encrypted           Boolean     @default(true)
+  description         String?
+
+  threatModel       ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId     String
+  sourceComponent   Component   @relation("ConnectionSource", fields: [sourceComponentId], references: [id], onDelete: Cascade)
+  sourceComponentId String
+  targetComponent   Component   @relation("ConnectionTarget", fields: [targetComponentId], references: [id], onDelete: Cascade)
+  targetComponentId String
+
+  sourceInterface   ComponentInterface? @relation("ConnectionSourceInterface", fields: [sourceInterfaceId], references: [id], onDelete: SetNull)
+  sourceInterfaceId String?
+  targetInterface   ComponentInterface? @relation("ConnectionTargetInterface", fields: [targetInterfaceId], references: [id], onDelete: SetNull)
+  targetInterfaceId String?
+
+  crossesBoundary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([threatModelId, edgeId])
+  @@index([threatModelId])
+  @@map("connections")
+}
+
+enum Protocol {
+  HTTP
+  HTTPS
+  GRPC
+  WEBSOCKET
+  TCP
+  UDP
+  AMQP
+  MQTT
+  KAFKA
+  POSTGRESQL
+  MYSQL
+  MONGODB
+  REDIS
+  SSH
+  SFTP
+  CUSTOM
+}
+
+enum AuthMethod {
+  NONE
+  API_KEY
+  JWT
+  OAUTH2
+  MTLS
+  BASIC
+  SAML
+  CUSTOM
+}
+
+enum DataType {
+  PII
+  PHI
+  FINANCIAL
+  CREDENTIALS
+  INTERNAL
+  PUBLIC
+  CUSTOM
+}
+
+model Boundary {
+  id          String     @id @default(cuid())
+  nodeId      String
+  name        String
+  trustLevel  TrustLevel @default(MEDIUM)
+  description String?
+  positionX   Float
+  positionY   Float
+  width       Float
+  height      Float
+
+  threatModel   ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+  components    Component[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([threatModelId, nodeId])
+  @@index([threatModelId])
+  @@map("boundaries")
+}
+
+enum TrustLevel {
+  HIGH
+  MEDIUM
+  LOW
+  UNTRUSTED
+}
+
+// =============================================================================
+// From: 07-threats.prisma
+// =============================================================================
+
+model Threat {
+  id                 String       @id @default(cuid())
+  name               String
+  description        String?
+  strideCategories   String       @default("[]")
+  severity           Severity     @default(MEDIUM)
+  status             ThreatStatus @default(OPEN)
+  category           String?
+  complianceControls String       @default("{}")
+  cweIds             String       @default("[]")
+  owaspIds           String       @default("[]")
+  templateId         String?
+  assigneeId         String?
+
+  threatModel      ThreatModel     @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId    String
+  componentNodeId  String?
+  connectionEdgeId String?
+  template         ThreatTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  assignee         User?           @relation("ThreatAssignee", fields: [assigneeId], references: [id])
+
+  mitigations Mitigation[]
+  riskScores  ThreatRiskScore[]
+  comments    ThreatComment[]
+
+  // Claim-citation verifier (rollup from Citation rows; computed on write)
+  citations          Citation[]
+  verificationStatus VerificationStatus @default(PENDING)
+
+  // Challenger gate (A4-1, ARCHITECTURE §2.4) — adversarial-refutation verdict.
+  // Distinct from `verificationStatus` above, which is the citation-rollup
+  // field owned by the citation verifier. UNVERIFIED = not yet challenged;
+  // CONFIRMED = survived refutation; UNCERTAIN = kept but flagged (low-conf
+  // refute / topology-or-citation doubt). REFUTED-with-confidence rows are
+  // deleted, never persisted with a status.
+  challengeStatus  ChallengeStatus @default(UNVERIFIED)
+  verificationNote String?
+
+  // AI/Human provenance
+  source       ThreatSource @default(MANUAL)
+  reviewStatus ReviewStatus @default(PENDING)
+  reviewedById String?
+  reviewedAt   DateTime?
+  reviewNotes  String?
+
+  // CVSS scoring (persisted, not just calculated on-the-fly)
+  cvssVector31 String? // "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+  cvssScore31  Float? // 0.0-10.0
+  cvssVector40 String? // "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/..."
+  cvssScore40  Float? // 0.0-10.0
+
+  // AI metadata (from micro-analysis pipeline)
+  aiConfidence   Float? // 0.0-1.0 confidence from analysis
+  aiMethodology  String? // "stride", "pasta", "kill_chain", "compound"
+  attackVector   String? // Step-by-step attack scenario
+  residualRisk   String? // What risk remains after mitigation
+  evidence       String? // JSON: {owasp, cwe, compliance, attackPath}
+  analysisHash   String? // Hash of the component at time this threat was generated
+  manuallyEdited Boolean @default(false) // True once a human has saved any edit. AI will skip on re-run.
+
+  // Analysis session provenance — set to aiJob.id of the run that created
+  // this threat. Lets the startup sweeper and failure-cleanup hooks delete
+  // partial-run rows atomically without affecting human-reviewed threats.
+  analysisSessionId String?
+
+  // Paraphrase-normalized name for the DB unique constraint. Computed from
+  // `name` via normalizeThreatName() on every write. See
+  // migrations/add-threat-dedup for the targetKey composition.
+  normalizedName String?
+
+  // W-03 (R12) — set when T3.2 LLM dedup (llm-dedup.ts) collapsed this row
+  // into a canonical duplicate elsewhere in the same analysis session. Holds
+  // the id of the surviving Threat row (best-effort target-scoped
+  // attribution; plain string, no FK, so a later delete of the winner can't
+  // orphan-constrain this row). Null = not superseded. Losers are MARKED,
+  // never deleted, so a human reviewer can still recover one.
+  dedupSupersededById String?
+
+  // Business context risk scoring (A23)
+  likelihood        Float?     // 0.0–1.0; null = not set by user
+  businessRiskScore Float?     // computed score 0–30; null if BusinessContext not configured
+  businessRiskTier  RiskTier?  // LOW/MEDIUM/HIGH/CRITICAL; derived from businessRiskScore
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+
+  @@index([threatModelId])
+  @@index([threatModelId, reviewStatus])
+  @@index([componentNodeId])
+  @@index([connectionEdgeId])
+  @@index([status])
+  @@index([severity])
+  @@index([source])
+  @@index([reviewStatus])
+  @@index([verificationStatus])
+  @@index([challengeStatus])
+  @@index([analysisSessionId])
+  @@index([assigneeId])
+  @@index([createdById])
+  @@index([dedupSupersededById])
+  @@map("threats")
+}
+
+enum ThreatSource {
+  MANUAL // Created by human
+  AI_SUGGESTED // Generated by AI, pending review
+  AI_ACCEPTED // AI-generated, accepted by human
+  AI_MODIFIED // AI-generated, modified by human
+}
+
+enum ReviewStatus {
+  PENDING // Not yet reviewed
+  ACCEPTED // Reviewer confirmed finding
+  REJECTED // Reviewer marked as false positive
+  MODIFIED // Reviewer changed details
+}
+
+// Challenger-gate verdict (A4-1, ARCHITECTURE §2.4). Adversarial refutation
+// outcome retained on a kept threat. REFUTED is intentionally absent: a
+// confidently-refuted AI_SUGGESTED threat is deleted, not flagged.
+enum ChallengeStatus {
+  UNVERIFIED // Not yet run through the challenger gate
+  CONFIRMED // Survived topology + citation + adversarial refutation
+  UNCERTAIN // Kept, but flagged (low-confidence refute or unresolved doubt)
+}
+
+enum StrideCategory {
+  SPOOFING
+  TAMPERING
+  REPUDIATION
+  INFORMATION_DISCLOSURE
+  DENIAL_OF_SERVICE
+  ELEVATION_OF_PRIVILEGE
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum ThreatStatus {
+  OPEN
+  MITIGATED
+  ACCEPTED
+  NOT_APPLICABLE
+}
+
+// Business context risk tier — derived from computed businessRiskScore (0–30)
+// Boundaries: 0–7 = LOW, 7–14 = MEDIUM, 14–21 = HIGH, 21–30 = CRITICAL
+enum RiskTier {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Mitigation {
+  id                  String               @id @default(cuid())
+  description         String // High-level control: "Implement IAM controls for service auth"
+  status              MitigationStatus     @default(NOT_IMPLEMENTED)
+  priority            Priority             @default(MEDIUM)
+  strategy            MitigationStrategy   @default(PREVENTION)
+  controlCategory     String? // IAM|ENCRYPTION|ACCESS_CONTROL|NETWORK|LOGGING|INPUT_VALIDATION|SECRETS|BACKUP|MONITORING|SUPPLY_CHAIN
+  notes               String?
+  dueDate             DateTime?
+  effectivenessScore  Float? // 0.0-0.85 — capped, never 100%
+  implementationNotes String? // What was actually done (human fills in)
+  verified            Boolean              @default(false) // True when implementation has been verified
+  obligation          MitigationObligation @default(RECOMMENDED)
+
+  // Testability — VNV can verify this mitigation
+  testCriteria String? // "Confirm that all service calls use mTLS certificates"
+  testResult   String? // "PASS"|"FAIL"|"PARTIAL" + notes
+  testedById   String?
+  testedAt     DateTime?
+
+  // Evidence/Proof — links to tickets, docs, screenshots, scan results
+  evidenceLinks String @default("[]") // JSON: [{type:"ticket",url:"...",title:"JIRA-123"}]
+
+  // Requirement Traceability — links to SRS/SAD requirements
+  // Legacy JSON field kept during migration; use MitigationRequirement junction going forward
+  requirementRefs String @default("[]") // JSON: [{docId:"SRS-9876543",reqId:"FR-12",text:"TLS 1.3"}]
+
+  // Normalized requirement links (replaces requirementRefs JSON)
+  requirements MitigationRequirement[]
+
+  // Control Inheritance — shared controls across models
+  isSharedControl    Boolean @default(false) // Can be inherited by other models in the org
+  inheritedFromId    String? // ID of the source mitigation this was inherited from
+  inheritedFromModel String? // Name of the model the source belongs to
+
+  // Claim-citation verifier (rollup from Citation rows)
+  citations          Citation[]
+  verificationStatus VerificationStatus @default(PENDING)
+
+  // D2: who owns this row. Only AI rows are regenerable, so only AI rows may be
+  // cleared by an AI re-analysis (see review-service persistAIThreats). Defaults
+  // to HUMAN so a row written by any path that forgets to set it is preserved
+  // rather than silently deleted on the next rerun.
+  source MitigationSource @default(HUMAN)
+
+  threat     Threat  @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  threatId   String
+  assignee   User?   @relation("MitigationAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  assigneeId String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+
+  @@index([threatId])
+  @@index([status])
+  @@index([verificationStatus])
+  @@index([assigneeId])
+  @@index([inheritedFromId])
+  @@index([createdById])
+  @@map("mitigations")
+}
+
+enum MitigationStatus {
+  NOT_IMPLEMENTED
+  IMPLEMENTED
+}
+
+/// Whether a mitigation was generated by the AI analysis pipeline (regenerable,
+/// so an AI rerun may replace it) or came from anywhere else — hand-written,
+/// template-instantiated, code-scan- or import-derived. HUMAN means "not owned
+/// by the AI rerun", not "typed by a person".
+enum MitigationSource {
+  AI
+  HUMAN
+}
+
+enum MitigationObligation {
+  REQUIRED
+  RECOMMENDED
+}
+
+enum Priority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum MitigationStrategy {
+  PREVENTION
+  DETECTION
+  RESPONSE
+  RECOVERY
+  DETERRENCE
+}
+
+// =============================================================================
+// From: 08-libraries.prisma
+// =============================================================================
+
+model ThreatLibrary {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  isDefault   Boolean @default(false)
+  isPublic    Boolean @default(false)
+
+  organization   Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String?
+  templates      ThreatTemplate[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("threat_libraries")
+}
+
+model ThreatTemplate {
+  id                       String         @id @default(cuid())
+  name                     String
+  description              String
+  strideCategory           StrideCategory
+  defaultSeverity          Severity       @default(MEDIUM)
+  applicableComponentTypes String         @default("[]")
+  suggestedMitigations     String         @default("[]")
+  complianceControls       String         @default("{}")
+  cweIds                   String         @default("[]")
+  owaspIds                 String         @default("[]")
+
+  library   ThreatLibrary @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  libraryId String
+  threats   Threat[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([libraryId])
+  @@map("threat_templates")
+}
+
+model MitigationLibrary {
+  id             String        @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  isDefault      Boolean       @default(false)
+  isPublic       Boolean       @default(false)
+
+  templates MitigationTemplate[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  @@index([organizationId])
+  @@map("mitigation_libraries")
+}
+
+model MitigationTemplate {
+  id                    String             @id @default(cuid())
+  libraryId             String
+  library               MitigationLibrary  @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  name                  String
+  description           String
+  strategy              MitigationStrategy
+  effort                EffortLevel        @default(MEDIUM)
+  effectiveness         EffectivenessLevel @default(MEDIUM)
+  applicableThreatTypes String             @default("[]")
+  complianceControls    String             @default("{}")
+  implementationSteps   String             @default("[]")
+  prerequisites         String             @default("[]")
+  relatedTemplateIds    String             @default("[]")
+  tags                  String             @default("[]")
+  usageCount            Int                @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  @@index([libraryId])
+  @@map("mitigation_templates")
+}
+
+enum EffortLevel {
+  TRIVIAL
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}
+
+enum EffectivenessLevel {
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}
+
+model ComponentTemplateLibrary {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  isDefault   Boolean @default(false)
+  isPublic    Boolean @default(false)
+
+  organization   Organization?       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String?
+  templates      ComponentTemplate[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("component_template_libraries")
+}
+
+model ComponentTemplate {
+  id                String        @id @default(cuid())
+  name              String
+  description       String?
+  componentType     ComponentType
+  icon              String?
+  color             String?
+  defaultProperties String        @default("{}")
+  suggestedThreats  String        @default("[]")
+  tags              String        @default("[]")
+
+  library   ComponentTemplateLibrary @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  libraryId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([libraryId])
+  @@map("component_templates")
+}
+
+model ModelTemplate {
+  id             String        @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  category       String?
+  tags           String        @default("[]")
+  thumbnail      String?
+
+  canvasState String
+  components  String @default("[]")
+  boundaries  String @default("[]")
+  threats     String @default("[]")
+
+  isPublic   Boolean @default(false)
+  usageCount Int     @default(0)
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([category])
+  @@index([isPublic])
+  @@map("model_templates")
+}
+
+model CustomThreatCategory {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  color          String?
+  icon           String?
+  sortOrder      Int          @default(0)
+  isActive       Boolean      @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("custom_threat_categories")
+}
+
+// =============================================================================
+// From: 09-dfd.prisma
+// =============================================================================
+
+model DataFlowDiagram {
+  id          String   @id @default(cuid())
+  name        String
+  level       DFDLevel @default(CONTEXT)
+  canvasState String   @default("{\"nodes\":[],\"edges\":[],\"viewport\":{\"x\":0,\"y\":0,\"zoom\":1}}")
+
+  threatModel   ThreatModel       @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+  parentDfd     DataFlowDiagram?  @relation("DFDHierarchy", fields: [parentDfdId], references: [id])
+  parentDfdId   String?
+  childDfds     DataFlowDiagram[] @relation("DFDHierarchy")
+
+  processes        DFDProcess[]
+  dataStores       DFDDataStore[]
+  externalEntities DFDExternalEntity[]
+  dataFlows        DFDDataFlow[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([threatModelId])
+  @@map("data_flow_diagrams")
+}
+
+enum DFDLevel {
+  CONTEXT
+  PROCESS
+}
+
+model DFDProcess {
+  id          String  @id @default(cuid())
+  nodeId      String
+  number      String
+  name        String
+  description String?
+  positionX   Float
+  positionY   Float
+
+  dfd               DataFlowDiagram @relation(fields: [dfdId], references: [id], onDelete: Cascade)
+  dfdId             String
+  linkedComponent   Component?      @relation(fields: [linkedComponentId], references: [id], onDelete: SetNull)
+  linkedComponentId String?
+
+  outgoingFlows DFDDataFlow[] @relation("FlowSource")
+  incomingFlows DFDDataFlow[] @relation("FlowTarget")
+
+  @@unique([dfdId, nodeId])
+  @@map("dfd_processes")
+}
+
+model DFDDataStore {
+  id          String  @id @default(cuid())
+  nodeId      String
+  number      String
+  name        String
+  description String?
+  dataTypes   String  @default("[]")
+  positionX   Float
+  positionY   Float
+
+  dfd               DataFlowDiagram @relation(fields: [dfdId], references: [id], onDelete: Cascade)
+  dfdId             String
+  linkedComponent   Component?      @relation(fields: [linkedComponentId], references: [id], onDelete: SetNull)
+  linkedComponentId String?
+
+  incomingFlows DFDDataFlow[] @relation("FlowToDataStore")
+  outgoingFlows DFDDataFlow[] @relation("FlowFromDataStore")
+
+  @@unique([dfdId, nodeId])
+  @@map("dfd_data_stores")
+}
+
+model DFDExternalEntity {
+  id          String             @id @default(cuid())
+  nodeId      String
+  name        String
+  entityType  ExternalEntityType
+  description String?
+  positionX   Float
+  positionY   Float
+
+  dfd               DataFlowDiagram @relation(fields: [dfdId], references: [id], onDelete: Cascade)
+  dfdId             String
+  linkedComponent   Component?      @relation(fields: [linkedComponentId], references: [id], onDelete: SetNull)
+  linkedComponentId String?
+
+  outgoingFlows DFDDataFlow[] @relation("FlowFromEntity")
+  incomingFlows DFDDataFlow[] @relation("FlowToEntity")
+
+  @@unique([dfdId, nodeId])
+  @@map("dfd_external_entities")
+}
+
+enum ExternalEntityType {
+  USER
+  SYSTEM
+  SERVICE
+}
+
+model DFDDataFlow {
+  id        String      @id @default(cuid())
+  edgeId    String
+  number    String?
+  name      String
+  dataTypes String      @default("[]")
+  volume    FlowVolume?
+  frequency String?
+
+  sourceProcessId   String?
+  sourceProcess     DFDProcess?        @relation("FlowSource", fields: [sourceProcessId], references: [id])
+  targetProcessId   String?
+  targetProcess     DFDProcess?        @relation("FlowTarget", fields: [targetProcessId], references: [id])
+  sourceDataStoreId String?
+  sourceDataStore   DFDDataStore?      @relation("FlowFromDataStore", fields: [sourceDataStoreId], references: [id])
+  targetDataStoreId String?
+  targetDataStore   DFDDataStore?      @relation("FlowToDataStore", fields: [targetDataStoreId], references: [id])
+  sourceEntityId    String?
+  sourceEntity      DFDExternalEntity? @relation("FlowFromEntity", fields: [sourceEntityId], references: [id])
+  targetEntityId    String?
+  targetEntity      DFDExternalEntity? @relation("FlowToEntity", fields: [targetEntityId], references: [id])
+
+  dfd               DataFlowDiagram     @relation(fields: [dfdId], references: [id], onDelete: Cascade)
+  dfdId             String
+  linkedUserStories UserStoryDataFlow[]
+
+  @@unique([dfdId, edgeId])
+  @@map("dfd_data_flows")
+}
+
+enum FlowVolume {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model UserStory {
+  id                 String          @id @default(cuid())
+  title              String
+  asA                String
+  iWant              String
+  soThat             String
+  acceptanceCriteria String          @default("[]")
+  status             UserStoryStatus @default(DRAFT)
+  tags               String          @default("[]")
+  externalId         String?
+
+  project   Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  dataFlows UserStoryDataFlow[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("user_stories")
+}
+
+enum UserStoryStatus {
+  DRAFT
+  READY
+  IN_PROGRESS
+  DONE
+}
+
+model UserStoryDataFlow {
+  id String @id @default(cuid())
+
+  userStory   UserStory   @relation(fields: [userStoryId], references: [id], onDelete: Cascade)
+  userStoryId String
+  dataFlow    DFDDataFlow @relation(fields: [dataFlowId], references: [id], onDelete: Cascade)
+  dataFlowId  String
+
+  @@unique([userStoryId, dataFlowId])
+  @@map("user_story_data_flows")
+}
+
+// =============================================================================
+// From: 10-sequence.prisma
+// =============================================================================
+
+model SequenceDiagram {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  order       Int     @default(0)
+
+  threatModel   ThreatModel           @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+  participants  SequenceParticipant[]
+  messages      SequenceMessage[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+
+  @@index([threatModelId])
+  @@map("sequence_diagrams")
+}
+
+model SequenceParticipant {
+  id          String  @id @default(cuid())
+  label       String
+  order       Int
+  componentId String?
+
+  sequenceDiagram   SequenceDiagram   @relation(fields: [sequenceDiagramId], references: [id], onDelete: Cascade)
+  sequenceDiagramId String
+  sentMessages      SequenceMessage[] @relation("MessageSender")
+  receivedMessages  SequenceMessage[] @relation("MessageReceiver")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sequenceDiagramId])
+  @@map("sequence_participants")
+}
+
+model SequenceMessage {
+  id             String      @id @default(cuid())
+  label          String
+  order          Int
+  messageType    MessageType @default(SYNC)
+  protocol       Protocol?
+  authentication AuthMethod?
+  isReturn       Boolean     @default(false)
+  notes          String?
+
+  sequenceDiagram   SequenceDiagram     @relation(fields: [sequenceDiagramId], references: [id], onDelete: Cascade)
+  sequenceDiagramId String
+  fromParticipant   SequenceParticipant @relation("MessageSender", fields: [fromId], references: [id], onDelete: Cascade)
+  fromId            String
+  toParticipant     SequenceParticipant @relation("MessageReceiver", fields: [toId], references: [id], onDelete: Cascade)
+  toId              String
+
+  threats String @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sequenceDiagramId])
+  @@map("sequence_messages")
+}
+
+enum MessageType {
+  SYNC
+  ASYNC
+  RETURN
+  SELF
+  CREATE
+  DESTROY
+}
+
+// =============================================================================
+// From: 11-audit.prisma
+// =============================================================================
+
+model AuditLog {
+  id           String       @id @default(cuid())
+  scope        AuditScope   @default(ORGANIZATION)
+  action       AuditAction
+  resourceType ResourceType
+  resourceId   String
+  resourceName String?
+
+  changes       String?
+  metadata      String?
+  previousState String?
+  newState      String?
+
+  userId    String
+  userEmail String
+
+  organizationId String?
+  modelId        String?
+  requestId      String?
+  impersonatedBy String?
+
+  // AI-specific tracking
+  aiProviderId    String?
+  aiProviderName  String?
+  aiModel         String?
+  aiInputTokens   Int?
+  aiOutputTokens  Int?
+  aiTotalTokens   Int?
+  aiLatencyMs     Int?
+  aiEstimatedCost Float?
+
+  createdAt DateTime @default(now())
+
+  @@index([scope, createdAt])
+  @@index([resourceType, resourceId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([createdAt])
+  @@index([aiProviderId])
+  @@map("audit_logs")
+}
+
+enum AuditScope {
+  SYSTEM
+  ORGANIZATION
+  MODEL
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  VIEW
+  EXPORT
+  SHARE
+  LOGIN
+  LOGOUT
+  INVITE
+  ACCEPT_INVITE
+  DECLINE_INVITE
+  SUSPEND
+  UNSUSPEND
+  IMPERSONATE
+  OWNERSHIP_TRANSFER
+  AI_QUERY
+  AI_PROVIDER_ADDED
+  AI_PROVIDER_UPDATED
+  AI_PROVIDER_REMOVED
+  AI_PROVIDER_TEST
+  SSO_CONFIG_UPDATED
+  SSO_CONFIG_DELETED
+  WEBHOOK_CREATED
+  WEBHOOK_UPDATED
+  WEBHOOK_DELETED
+  SECURITY_BLOCK // Blocked security-sensitive operation (rate limit, unauthorized setup attempt)
+}
+
+enum ResourceType {
+  THREAT_MODEL
+  PROJECT
+  ORGANIZATION
+  THREAT
+  MITIGATION
+  USER
+  SYSTEM_SETTINGS
+  DFD
+  SEQUENCE_DIAGRAM
+  THREAT_LIBRARY
+  COMPONENT_TEMPLATE
+}
+
+// =============================================================================
+// From: 12-ci.prisma
+// =============================================================================
+
+model CIScan {
+  id String @id @default(cuid())
+
+  threatModel   ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+
+  repositoryId   String
+  prNumber       Int?
+  commitSha      String
+  baseBranch     String?
+  headBranch     String?
+  sourceType     CISourceType @default(GITHUB)
+  failOnSeverity Severity?
+
+  status        CIScanStatus @default(PENDING)
+  findingsCount Int          @default(0)
+  criticalCount Int          @default(0)
+  highCount     Int          @default(0)
+  mediumCount   Int          @default(0)
+  lowCount      Int          @default(0)
+  infoCount     Int          @default(0)
+  findings      String       @default("[]")
+
+  prCommentUrl String?
+  checkRunId   String?
+
+  scanStartedAt   DateTime  @default(now())
+  scanCompletedAt DateTime?
+
+  createdAt     DateTime @default(now())
+  triggeredById String?
+
+  @@index([threatModelId])
+  @@index([repositoryId])
+  @@index([status])
+  @@map("ci_scans")
+}
+
+enum CISourceType {
+  GITHUB
+  GITLAB
+  BITBUCKET
+  AZURE_DEVOPS
+}
+
+enum CIScanStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model CIApiKey {
+  id        String @id @default(cuid())
+  name      String
+  keyHash   String
+  keyPrefix String
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  scopes     String    @default("[\"ci:scan\"]")
+  lastUsedAt DateTime?
+  usageCount Int       @default(0)
+  expiresAt  DateTime?
+  isActive   Boolean   @default(true)
+
+  createdAt   DateTime @default(now())
+  createdById String
+
+  @@index([organizationId])
+  @@index([keyPrefix])
+  @@map("ci_api_keys")
+}
+
+// =============================================================================
+// From: 13-settings.prisma
+// =============================================================================
+
+model SystemSettings {
+  id String @id @default("default")
+
+  // Setup status
+  setupComplete      Boolean   @default(false)
+  setupCompletedAt   DateTime?
+  setupCompletedById String?
+
+  // Authentication settings
+  allowSignups             Boolean    @default(true)
+  requireEmailVerification Boolean    @default(true)
+  defaultUserRole          MemberRole @default(VIEWER)
+  sessionTimeoutHours      Int        @default(24)
+  maxLoginAttempts         Int        @default(5)
+  lockoutDurationMinutes   Int        @default(15)
+
+  // Password policy
+  passwordMinLength           Int     @default(12)
+  passwordRequireUppercase    Boolean @default(true)
+  passwordRequireLowercase    Boolean @default(true)
+  passwordRequireNumbers      Boolean @default(true)
+  passwordRequireSpecialChars Boolean @default(false)
+
+  // MFA settings
+  mfaRequired Boolean @default(false)
+
+  // Organization settings
+  maxProjectsPerOrg Int @default(100)
+
+  // AI settings
+  enableAI   Boolean @default(true)
+  aiProvider String  @default("anthropic")
+
+  // Private-network AI endpoints (self-hosted LLMs). An org's AI base URL may
+  // point at a loopback/private host only when it matches this super-admin
+  // list (or the switch below is on). AI_PRIVATE_HOST_ALLOWLIST adds to it.
+  aiPrivateHostAllowlist String? // JSON array of hostnames, IPs and CIDRs
+  aiAllowAllPrivateHosts Boolean @default(false)
+
+  // NVD (nvd.nist.gov) API key for CVE lookups, encrypted. Each install
+  // registers its own; NVD_API_KEY in the environment is the fallback.
+  nvdApiKey String?
+
+  // OAuth Configuration
+  oauthProviders String?
+
+  // SAML SSO settings
+  samlEnabled    Boolean @default(false)
+  samlJacksonUrl String?
+  samlProductId  String  @default("flow-threat-model")
+
+  // IP Allowlisting
+  ipAllowlistEnabled Boolean @default(false)
+  ipAllowlist        String?
+
+  // Audit settings
+  auditRetentionDays Int @default(90)
+
+  // Email Provider
+  emailProvider String  @default("none")
+  emailFrom     String?
+  emailConfig   String?
+
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+
+  @@map("system_settings")
+}
+
+// =============================================================================
+// From: 14-risk.prisma
+// =============================================================================
+
+model RiskFramework {
+  id             String            @id @default(cuid())
+  organizationId String?
+  organization   Organization?     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  type           RiskFrameworkType
+  description    String?
+  config         String            @default("{}")
+  isDefault      Boolean           @default(false)
+  isActive       Boolean           @default(true)
+
+  riskScores ThreatRiskScore[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("risk_frameworks")
+}
+
+model ThreatRiskScore {
+  id          String        @id @default(cuid())
+  threatId    String
+  threat      Threat        @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  frameworkId String
+  framework   RiskFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+
+  factors String
+  score   Float
+  rating  String
+
+  calculatedAt   DateTime @default(now())
+  calculatedById String?
+
+  @@unique([threatId, frameworkId])
+  @@index([threatId])
+  @@index([frameworkId])
+  @@map("threat_risk_scores")
+}
+
+enum RiskFrameworkType {
+  OWASP_RISK_RATING
+  FAIR
+  CVSS
+  DREAD
+  CUSTOM
+}
+
+// =============================================================================
+// From: 15-integrations.prisma
+// =============================================================================
+
+model Integration {
+  id             String            @id @default(cuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           IntegrationType
+  name           String
+  status         IntegrationStatus @default(INACTIVE)
+
+  config        String
+  credentials   String?
+  scopes        String  @default("[]")
+  webhookUrl    String?
+  webhookSecret String?
+
+  lastSyncedAt        DateTime?
+  lastSyncStatus      String?
+  syncErrors          Int       @default(0)
+  consecutiveFailures Int       @default(0)
+
+  mappings IntegrationMapping[]
+  syncLogs IntegrationSyncLog[]
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, type])
+  @@index([organizationId])
+  @@index([status])
+  @@map("integrations")
+}
+
+model IntegrationMapping {
+  id            String      @id @default(cuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  localType     String
+  localId       String
+  externalType  String
+  externalId    String
+  externalUrl   String?
+  externalKey   String?
+  syncDirection SyncDirection @default(BIDIRECTIONAL)
+  lastSyncedAt  DateTime?
+  metadata      String        @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([integrationId, localType, localId])
+  @@unique([integrationId, externalType, externalId])
+  @@index([integrationId])
+  @@index([localType, localId])
+  @@map("integration_mappings")
+}
+
+model IntegrationSyncLog {
+  id            String        @id @default(cuid())
+  integrationId String
+  integration   Integration   @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  direction     SyncDirection
+  status        SyncStatus
+  itemsSynced   Int           @default(0)
+  itemsFailed   Int           @default(0)
+  errorMessage  String?
+  details       String?
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([integrationId, startedAt])
+  @@map("integration_sync_logs")
+}
+
+enum IntegrationType {
+  JIRA
+  GITHUB_ISSUES
+  AZURE_DEVOPS
+  LINEAR
+  ASANA
+  SLACK
+  TEAMS
+  CUSTOM_WEBHOOK
+}
+
+enum IntegrationStatus {
+  INACTIVE
+  CONNECTING
+  ACTIVE
+  ERROR
+  SUSPENDED
+}
+
+enum SyncDirection {
+  PUSH_ONLY
+  PULL_ONLY
+  BIDIRECTIONAL
+}
+
+enum SyncStatus {
+  IN_PROGRESS
+  COMPLETED
+  PARTIAL
+  FAILED
+}
+
+// =============================================================================
+// From: 16-marketplace.prisma
+// =============================================================================
+
+model LibraryPublication {
+  id          String      @id @default(cuid())
+  libraryType LibraryType
+  libraryId   String
+
+  sourceOrgId String
+  sourceOrg   Organization @relation("PublishedFrom", fields: [sourceOrgId], references: [id], onDelete: Cascade)
+
+  targetOrgId String?
+  targetOrg   Organization? @relation("PublishedTo", fields: [targetOrgId], references: [id], onDelete: Cascade)
+
+  status    PublicationStatus @default(PENDING)
+  version   String
+  changelog String?
+
+  requestedById   String
+  requestedAt     DateTime  @default(now())
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectedById    String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sourceOrgId])
+  @@index([targetOrgId])
+  @@index([libraryType, libraryId])
+  @@map("library_publications")
+}
+
+model LibrarySubscription {
+  id                String       @id @default(cuid())
+  subscriberOrgId   String
+  subscriberOrg     Organization @relation(fields: [subscriberOrgId], references: [id], onDelete: Cascade)
+  libraryType       LibraryType
+  libraryId         String
+  autoUpdate        Boolean      @default(true)
+  lastSyncedAt      DateTime?
+  lastSyncedVersion String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([subscriberOrgId, libraryType, libraryId])
+  @@index([subscriberOrgId])
+  @@map("library_subscriptions")
+}
+
+model LibraryUsageEvent {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  libraryType    LibraryType
+  libraryId      String
+  templateId     String?
+  eventType      UsageEventType
+  metadata       String         @default("{}")
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([libraryType, libraryId])
+  @@map("library_usage_events")
+}
+
+enum LibraryType {
+  THREAT_LIBRARY
+  MITIGATION_LIBRARY
+  COMPONENT_TEMPLATE_LIBRARY
+  MODEL_TEMPLATE
+}
+
+enum PublicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVOKED
+}
+
+enum UsageEventType {
+  VIEW
+  CLONE
+  APPLY
+  EXPORT
+  SHARE
+}
+
+// =============================================================================
+// From: 17-scanners.prisma
+// =============================================================================
+
+model ScanRun {
+  id            String      @id @default(cuid())
+  scannerType   ScannerType
+  projectId     String
+  threatModelId String?
+
+  startedAt   DateTime      @default(now())
+  completedAt DateTime?
+  status      ScanRunStatus @default(RUNNING)
+
+  totalFindings Int     @default(0)
+  criticalCount Int     @default(0)
+  highCount     Int     @default(0)
+  mediumCount   Int     @default(0)
+  lowCount      Int     @default(0)
+  infoCount     Int     @default(0)
+  error         String?
+
+  findings ScannerFinding[]
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@index([scannerType])
+  @@index([status])
+  @@map("scan_runs")
+}
+
+model ScannerFinding {
+  id          String      @id @default(cuid())
+  externalId  String
+  scannerType ScannerType
+
+  title       String
+  description String
+  severity    FindingSeverity
+  category    FindingCategory
+
+  cweIds        String  @default("[]")
+  cveIds        String  @default("[]")
+  owaspCategory String?
+
+  filePath    String?
+  lineNumber  Int?
+  codeSnippet String?
+
+  componentName    String?
+  componentVersion String?
+  fixAvailable     Boolean?
+  fixVersion       String?
+
+  remediation String?
+  externalUrl String?
+
+  firstSeen DateTime @default(now())
+  lastSeen  DateTime @default(now())
+
+  status        FindingStatus @default(OPEN)
+  dismissedById String?
+  dismissedAt   DateTime?
+  dismissReason String?
+
+  rawData String?
+
+  scanRun       ScanRun? @relation(fields: [scanRunId], references: [id], onDelete: SetNull)
+  scanRunId     String?
+  projectId     String
+  threatModelId String?
+
+  componentMappings FindingComponentMap[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Per project: the same scanner issue id appears in many tenants' projects
+  @@unique([projectId, scannerType, externalId])
+  @@index([projectId])
+  @@index([threatModelId])
+  @@index([severity])
+  @@index([status])
+  @@map("scanner_findings")
+}
+
+model FindingComponentMap {
+  id            String            @id @default(cuid())
+  findingId     String
+  finding       ScannerFinding    @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  componentId   String
+  confidence    MappingConfidence
+  mappingReason String
+
+  verifiedById String?
+  verifiedAt   DateTime?
+  isCorrect    Boolean?
+
+  createdAt DateTime @default(now())
+
+  @@unique([findingId, componentId])
+  @@index([findingId])
+  @@index([componentId])
+  @@map("finding_component_maps")
+}
+
+enum ScannerType {
+  SNYK
+  SONARQUBE
+  CHECKMARX
+  VERACODE
+  OWASP_ZAP
+  BURP
+  CUSTOM
+}
+
+enum ScanRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum FindingSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum FindingCategory {
+  VULNERABILITY
+  CODE_SMELL
+  BUG
+  SECURITY_HOTSPOT
+  LICENSE
+  DEPENDENCY
+  CONFIGURATION
+}
+
+enum FindingStatus {
+  OPEN
+  IN_PROGRESS
+  FIXED
+  DISMISSED
+  FALSE_POSITIVE
+}
+
+enum MappingConfidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+// =============================================================================
+// From: 18-notifications.prisma
+// =============================================================================
+
+model Notification {
+  id       String    @id @default(cuid())
+  userId   String
+  type     String
+  category String
+  priority String    @default("NORMAL")
+  title    String
+  message  String
+  link     String?
+  metadata String?
+  isRead   Boolean   @default(false)
+  readAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// =============================================================================
+// From: 19-reviews.prisma
+// =============================================================================
+
+model ReviewRequest {
+  id              String    @id @default(cuid())
+  threatModelId   String
+  threatModelName String
+  version         Int
+  status          String    @default("PENDING_REVIEW")
+  requestedById   String
+  requestedByName String
+  requestedAt     DateTime  @default(now())
+  dueDate         DateTime?
+  priority        String    @default("NORMAL")
+  reviewType      String    @default("INITIAL")
+  description     String?
+  scope           String?
+  signOffRequired Boolean   @default(false)
+  checklist       String    @default("[]")
+  metadata        String?
+  completedAt     DateTime?
+
+  assignments ReviewAssignment[]
+  comments    ReviewComment[]
+  signOff     ReviewSignOff?
+  activities  ReviewActivity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([threatModelId])
+  @@index([requestedById])
+  @@index([status])
+  @@index([dueDate])
+  @@map("review_requests")
+}
+
+model ReviewAssignment {
+  id              String        @id @default(cuid())
+  reviewRequestId String
+  reviewRequest   ReviewRequest @relation(fields: [reviewRequestId], references: [id], onDelete: Cascade)
+  userId          String
+  userName        String
+  userEmail       String
+  role            String        @default("REVIEWER")
+  status          String        @default("PENDING")
+  decision        String?
+  decisionAt      DateTime?
+  comments        String?
+  required        Boolean       @default(true)
+  notifiedAt      DateTime?
+  assignedAt      DateTime      @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([reviewRequestId, userId])
+  @@index([reviewRequestId])
+  @@index([userId])
+  @@index([status])
+  @@map("review_assignments")
+}
+
+model ReviewComment {
+  id                 String        @id @default(cuid())
+  reviewRequestId    String
+  reviewRequest      ReviewRequest @relation(fields: [reviewRequestId], references: [id], onDelete: Cascade)
+  userId             String
+  userName           String
+  content            String
+  category           String?
+  referencedItemType String?
+  referencedItemId   String?
+  isResolved         Boolean       @default(false)
+  resolvedById       String?
+  resolvedAt         DateTime?
+  parentCommentId    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reviewRequestId])
+  @@index([userId])
+  @@index([isResolved])
+  @@map("review_comments")
+}
+
+model ReviewSignOff {
+  id              String        @id @default(cuid())
+  reviewRequestId String        @unique
+  reviewRequest   ReviewRequest @relation(fields: [reviewRequestId], references: [id], onDelete: Cascade)
+  signedOffById   String
+  signedOffByName String
+  signedOffAt     DateTime      @default(now())
+  signature       String?
+  statement       String
+  expiresAt       DateTime?
+  metadata        String?
+
+  createdAt DateTime @default(now())
+
+  @@index([signedOffById])
+  @@map("review_sign_offs")
+}
+
+model ReviewActivity {
+  id              String        @id @default(cuid())
+  reviewRequestId String
+  reviewRequest   ReviewRequest @relation(fields: [reviewRequestId], references: [id], onDelete: Cascade)
+  userId          String?
+  userName        String?
+  action          String
+  details         String?
+
+  createdAt DateTime @default(now())
+
+  @@index([reviewRequestId])
+  @@index([createdAt])
+  @@map("review_activities")
+}
+
+model ReviewWorkflowConfig {
+  id             String  @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  isDefault      Boolean @default(false)
+  isActive       Boolean @default(true)
+
+  minimumReviewers    Int     @default(1)
+  requireSecurityLead Boolean @default(false)
+  requireSignOff      Boolean @default(false)
+
+  defaultDueDays Int    @default(7)
+  reminderDays   String @default("[3, 1]")
+  escalationDays Int?
+
+  autoApproveIfAllPass Boolean @default(false)
+  autoCloseOnReject    Boolean @default(true)
+
+  checklistTemplate String @default("[]")
+  criteria          String @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("review_workflow_configs")
+}
+
+// =============================================================================
+// From: 20-compliance.prisma
+// =============================================================================
+
+model CustomComplianceFramework {
+  id             String  @id @default(cuid())
+  organizationId String?
+  name           String
+  shortName      String
+  description    String?
+  version        String?
+  url            String?
+  color          String  @default("#6366f1")
+
+  isPublic          Boolean @default(false)
+  inheritedControls String  @default("{}")
+
+  categories CustomFrameworkCategory[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  @@unique([organizationId, shortName])
+  @@index([organizationId])
+  @@index([isPublic])
+  @@map("custom_compliance_frameworks")
+}
+
+model CustomFrameworkCategory {
+  id          String                    @id @default(cuid())
+  frameworkId String
+  framework   CustomComplianceFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  sortOrder   Int                       @default(0)
+
+  controls CustomFrameworkControl[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([frameworkId, name])
+  @@index([frameworkId])
+  @@map("custom_framework_categories")
+}
+
+model CustomFrameworkControl {
+  id          String                  @id @default(cuid())
+  categoryId  String
+  category    CustomFrameworkCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  controlId   String
+  name        String
+  description String
+  severity    Severity                @default(MEDIUM)
+  sortOrder   Int                     @default(0)
+
+  strideCategories String @default("[]")
+  keywords         String @default("[]")
+  mappedControls   String @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([categoryId, controlId])
+  @@index([categoryId])
+  @@map("custom_framework_controls")
+}
+
+// =============================================================================
+// From: 21-extensions.prisma
+// =============================================================================
+
+model Extension {
+  id String @id @default(cuid())
+
+  slug        String  @unique
+  name        String
+  description String?
+  version     String  @default("1.0.0")
+  author      String?
+  authorUrl   String?
+  iconUrl     String?
+
+  type             ExtensionType
+  capabilities     String        @default("[]")
+  configSchema     String?
+  endpoints        String        @default("{}")
+  uiSlots          String        @default("[]")
+  uiConfig         String?
+  actions          String        @default("[]")
+  subscribedEvents String        @default("[]")
+
+  isVerified      Boolean @default(false)
+  isPublic        Boolean @default(false)
+  isCoreExtension Boolean @default(false)
+  createdByOrgId  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  installations ExtensionInstall[]
+
+  @@index([type])
+  @@index([isPublic])
+  @@index([createdByOrgId])
+  @@map("extensions")
+}
+
+model ExtensionInstall {
+  id             String       @id @default(cuid())
+  extensionId    String
+  extension      Extension    @relation(fields: [extensionId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  status        ExtensionInstallStatus @default(ACTIVE)
+  config        String?
+  credentials   String?
+  webhookSecret String?
+  permissions   String                 @default("[]")
+
+  lastEventAt       DateTime?
+  lastEventStatus   String?
+  errorCount        Int       @default(0)
+  lastError         String?
+  consecutiveErrors Int       @default(0)
+
+  installedById String
+  installedAt   DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([extensionId, organizationId])
+  @@index([organizationId])
+  @@index([status])
+  @@map("extension_installs")
+}
+
+model ExtensionEventLog {
+  id             String @id @default(cuid())
+  installId      String
+  extensionId    String
+  organizationId String
+
+  eventType String
+  payload   String
+
+  status        ExtensionEventStatus @default(PENDING)
+  attempts      Int                  @default(0)
+  lastAttemptAt DateTime?
+  nextRetryAt   DateTime?
+
+  responseStatus Int?
+  responseBody   String?
+  errorMessage   String?
+
+  createdAt   DateTime  @default(now())
+  deliveredAt DateTime?
+
+  @@index([installId, createdAt])
+  @@index([status, nextRetryAt])
+  @@map("extension_event_logs")
+}
+
+enum ExtensionType {
+  INTEGRATION
+  UI_PANEL
+  ACTION
+  COMPOSITE
+}
+
+enum ExtensionInstallStatus {
+  ACTIVE
+  PAUSED
+  ERROR
+  UNINSTALLING
+}
+
+enum ExtensionEventStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  RETRYING
+}
+
+// =============================================================================
+// From: 22-dependencies.prisma
+// =============================================================================
+
+model Dependency {
+  id          String         @id @default(cuid())
+  name        String // "gorilla/mux", "scikit-learn", "axios"
+  version     String? // "1.8.0"
+  type        DependencyType @default(DIRECT)
+  language    String? // "Go", "Python", "JavaScript"
+  riskLevel   DependencyRisk @default(MEDIUM)
+  description String?
+  knownVulns  String? // Known vulnerability notes
+
+  threatModel   ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+
+  // Extraction provenance
+  sourceDocument String? // Which doc it was found in
+  confidence     Float? // 0-1
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([threatModelId, name])
+  @@index([threatModelId])
+  @@map("dependencies")
+}
+
+enum DependencyType {
+  DIRECT // Direct project dependency
+  EXTERNAL // External managed service (AWS RDS, etc.)
+  OTS // Off-the-shelf software
+  SOUP // Software of Unknown Provenance
+}
+
+enum DependencyRisk {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// =============================================================================
+// From: 22-prompts.prisma
+// =============================================================================
+
+model PromptTemplate {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  category           PromptCategory
+  systemPrompt       String
+  userPromptTemplate String
+  variables          String         @default("[]")
+
+  outputFormat PromptOutputFormat @default(JSON)
+  outputSchema String?
+
+  temperature    Float   @default(0.3)
+  maxTokens      Int     @default(2000)
+  requiresVision Boolean @default(false)
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String?
+
+  tags      String  @default("[]")
+  version   Int     @default(1)
+  isBuiltIn Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documentTypes DocumentTypeConfig[] @relation("DocumentTypePrompt")
+
+  @@index([organizationId])
+  @@index([category])
+  @@index([isBuiltIn])
+  @@map("prompt_templates")
+}
+
+enum PromptCategory {
+  CLASSIFICATION
+  EXTRACTION
+  ANALYSIS
+  TRANSFORMATION
+  VALIDATION
+  VISION
+  THREAT_IDENTIFICATION
+  MITIGATION
+  CHAT
+}
+
+enum PromptOutputFormat {
+  JSON
+  TEXT
+  MARKDOWN
+}
+
+/// Document type configurations for automatic detection and prompt selection
+model DocumentTypeConfig {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  icon        String?
+
+  detectionRules     String @default("[]")
+  detectionThreshold Int    @default(60)
+  priority           Int    @default(0)
+
+  promptTemplate   PromptTemplate @relation("DocumentTypePrompt", fields: [promptTemplateId], references: [id])
+  promptTemplateId String
+
+  supportedFormats String @default("[\"pdf\",\"docx\",\"md\",\"txt\"]")
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String?
+
+  isBuiltIn Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([promptTemplateId])
+  @@map("document_type_configs")
+}
+
+/// Execution log for prompt executions
+model PromptExecutionLog {
+  id String @id @default(cuid())
+
+  promptTemplateId   String
+  promptTemplateName String
+
+  documentTypeId   String?
+  documentTypeName String?
+
+  organizationId String?
+  userId         String
+
+  inputDocument  String?
+  inputVariables String?
+  outputResult   String?
+  outputParsed   String?
+
+  status ExecutionStatus @default(PENDING)
+
+  tokensUsed Int?
+  durationMs Int?
+  model      String?
+  provider   String?
+
+  errorMessage String?
+  errorCode    String?
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([promptTemplateId])
+  @@index([status])
+  @@map("prompt_execution_logs")
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+/// Pipeline definition for multi-stage document processing
+model PromptPipeline {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  isSequential Boolean @default(true)
+  stopOnError  Boolean @default(true)
+  timeout      Int     @default(300000)
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String?
+
+  tags      String  @default("[]")
+  isBuiltIn Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  stages     PipelineStage[]
+  executions PipelineExecution[]
+
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([isBuiltIn])
+  @@map("prompt_pipelines")
+}
+
+/// Stage within a pipeline
+model PipelineStage {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  order     Int    @default(0)
+  dependsOn String @default("[]")
+
+  promptTemplateId String
+  inputMapping     String @default("{}")
+  outputFields     String @default("[]")
+
+  optional   Boolean @default(false)
+  retryCount Int     @default(0)
+  timeoutMs  Int?
+  condition  String?
+
+  pipeline        PromptPipeline           @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  pipelineId      String
+  stageExecutions PipelineStageExecution[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pipelineId, order])
+  @@index([pipelineId])
+  @@index([promptTemplateId])
+  @@map("pipeline_stages")
+}
+
+/// Execution of an entire pipeline
+model PipelineExecution {
+  id String @id @default(cuid())
+
+  pipeline   PromptPipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  pipelineId String
+
+  organizationId String?
+  userId         String
+  threatModelId  String?
+
+  inputDocument   String?
+  inputDocumentId String?
+  inputMetadata   String  @default("{}")
+
+  status         ExecutionStatus @default(PENDING)
+  currentStageId String?
+  outputs        String          @default("{}")
+  finalResult    String?
+
+  totalDurationMs Int?
+  totalTokensUsed Int?
+
+  errorMessage String?
+  errorStageId String?
+
+  stageExecutions PipelineStageExecution[]
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([pipelineId])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([status])
+  @@map("pipeline_executions")
+}
+
+/// Execution of a single stage within a pipeline
+model PipelineStageExecution {
+  id String @id @default(cuid())
+
+  pipelineExecution   PipelineExecution @relation(fields: [pipelineExecutionId], references: [id], onDelete: Cascade)
+  pipelineExecutionId String
+  stage               PipelineStage     @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  stageId             String
+
+  order  Int
+  status ExecutionStatus @default(PENDING)
+
+  input        String?
+  output       String?
+  outputParsed String?
+
+  durationMs    Int?
+  tokensUsed    Int?
+  retryAttempts Int  @default(0)
+
+  errorMessage String?
+  errorCode    String?
+
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  @@unique([pipelineExecutionId, stageId])
+  @@index([pipelineExecutionId])
+  @@index([stageId])
+  @@index([status])
+  @@map("pipeline_stage_executions")
+}
+
+// =============================================================================
+// From: 23-ai-jobs.prisma
+// =============================================================================
+
+enum AiJobType {
+  SUGGEST_THREATS
+  SUGGEST_MITIGATIONS
+  EXTRACT_DOCUMENT
+  EXTRACT_DIAGRAM
+  ATTACK_TREE
+  CALCULATE_SEVERITY
+  SEQUENCE_DIAGRAM
+  REFINEMENT_QUESTIONS
+  EXPERT_ANALYSIS
+  VERIFY_CITATIONS
+  REFRESH_MITIGATIONS
+  ATTACK_CHAIN_ANALYSIS
+  ARCHITECTURAL_MITIGATIONS
+}
+
+enum AiJobStatus {
+  QUEUED
+  PROCESSING
+  PAUSED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model AiJob {
+  id String @id @default(cuid())
+
+  user   User   @relation("AiJobUser", fields: [userId], references: [id])
+  userId String
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+
+  type   AiJobType
+  status AiJobStatus @default(QUEUED)
+
+  // Optional associations
+  threatModel   ThreatModel? @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String?
+  threatId      String?
+
+  // Job data
+  input           String // JSON-encoded job-specific input
+  result          String? // JSON-encoded result on completion
+  error           String? // Error message on failure
+  progress        Int     @default(0) // 0-100 progress percent
+  progressMessage String? // Human-readable current step description
+  checkpoint      String? // JSON: { completedComponentIds: string[], threats: MicroThreat[] } — for resume
+
+  // BullMQ correlation
+  bullJobId String? @unique
+
+  // Timing
+  queuedAt    DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  // Notification tracking
+  notificationSent Boolean @default(false)
+
+  @@index([userId, status])
+  @@index([userId, queuedAt(sort: Desc)])
+  @@index([threatModelId])
+  @@index([threatModelId, status])
+  @@index([status])
+  @@map("ai_jobs")
+}
+
+// =============================================================================
+// From: 24-compliance-evidence.prisma
+// =============================================================================
+
+model ControlImplementation {
+  id             String               @id @default(cuid())
+  threatModelId  String
+  framework      String // e.g., "HIPAA", "PCI_DSS", "NIST_800_53"
+  controlId      String // e.g., "164.312(a)(1)", "PCI-8.3.1", "AC-2"
+  controlName    String // Display name
+  status         ImplementationStatus @default(NOT_STARTED)
+  actualCoverage Float? // 0-100 manual override of computed coverage
+  ownerId        String? // Assigned team member
+  dueDate        DateTime?
+  completedDate  DateTime?
+  notes          String?
+  verifiedById   String? // Reviewer who verified
+  verifiedAt     DateTime?
+
+  evidence ControlEvidence[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+
+  @@unique([threatModelId, framework, controlId])
+  @@index([threatModelId])
+  @@index([framework])
+  @@index([status])
+  @@map("control_implementations")
+}
+
+model ControlEvidence {
+  id               String                @id @default(cuid())
+  implementationId String
+  implementation   ControlImplementation @relation(fields: [implementationId], references: [id], onDelete: Cascade)
+
+  evidenceType EvidenceType
+  title        String
+  description  String?
+  url          String? // Link to policy, Jira ticket, scan report, etc.
+  fileKey      String? // S3 key if uploaded
+  fileName     String?
+  fileSize     Int?
+
+  createdAt   DateTime @default(now())
+  createdById String
+
+  @@index([implementationId])
+  @@map("control_evidence")
+}
+
+enum ImplementationStatus {
+  NOT_STARTED
+  PLANNED
+  IN_PROGRESS
+  IMPLEMENTED
+  VERIFIED
+  NOT_APPLICABLE
+}
+
+enum EvidenceType {
+  POLICY_DOCUMENT
+  PROCEDURE
+  TEST_RESULT
+  SCAN_REPORT
+  JIRA_TICKET
+  GITHUB_ISSUE
+  SCREENSHOT
+  AUDIT_LOG
+  CONFIGURATION
+  OTHER
+}
+
+// =============================================================================
+// From: 25-requirements.prisma
+// =============================================================================
+
+enum RequirementSource {
+  MANUAL       // Added directly via UI
+  DOCUMENT     // Extracted from an imported SRS/SAD/policy document
+  CSV          // Bulk-imported via CSV upload
+  FRAMEWORK    // Imported from a compliance framework (HIPAA, PCI-DSS, etc.)
+  AI_SUGGESTED // LLM proposed this requirement to close a gap (awaits user review)
+}
+
+/// Review status for AI_SUGGESTED requirements (parallels Threat.reviewStatus).
+/// MANUAL / DOCUMENT / CSV / FRAMEWORK sources default to ACCEPTED (no review needed).
+enum RequirementReviewStatus {
+  PENDING   // AI suggestion awaiting human review
+  ACCEPTED  // Accepted into the requirements set
+  REJECTED  // Rejected — kept as history but excluded from traceability
+  MODIFIED  // Accepted with edits
+}
+
+model Requirement {
+  id String @id @default(cuid())
+
+  /// Short identifier: "FR-12", "SEC-3", "HIPAA-164.312(a)(1)", "REQ-001"
+  reqId String
+
+  /// Full requirement text
+  text String
+
+  /// Logical category: "security" | "functional" | "compliance" | "privacy" | "performance"
+  category String?
+
+  /// Source document label: "SRS", "SAD", "HIPAA", "PCI-DSS", user-supplied
+  docId String?
+
+  /// How this requirement entered the system
+  source RequirementSource @default(MANUAL)
+
+  /// Review lifecycle — only meaningful for AI_SUGGESTED (others default ACCEPTED)
+  reviewStatus  RequirementReviewStatus @default(ACCEPTED)
+  reviewedAt    DateTime?
+  reviewedById  String?
+  reviewNotes   String?
+
+  /// For FRAMEWORK source: the framework key (e.g. "HIPAA", "PCI_DSS")
+  frameworkId String?
+
+  /// Source document (when imported from a document)
+  document   Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  documentId String?
+
+  threatModel   ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+
+  /// Groups versions of the same logical requirement across re-extractions. First version: familyId == id.
+  requirementFamilyId String?
+
+  /// Monotonic per-family version. v1, v2, v3 …
+  version Int @default(1)
+
+  /// Set when superseded by a newer version (e.g. re-extraction from a newer Document version).
+  supersededAt DateTime?
+
+  mitigations MitigationRequirement[]
+  citations   Citation[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+
+  @@unique([threatModelId, reqId, version])
+  @@index([threatModelId])
+  @@index([threatModelId, supersededAt])
+  @@index([requirementFamilyId])
+  @@index([source])
+  @@map("requirements")
+}
+
+/// Junction table: many-to-many between Mitigation and Requirement
+model MitigationRequirement {
+  id            String      @id @default(cuid())
+  mitigation    Mitigation  @relation(fields: [mitigationId], references: [id], onDelete: Cascade)
+  mitigationId  String
+  requirement   Requirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  requirementId String
+  createdAt     DateTime    @default(now())
+
+  @@unique([mitigationId, requirementId])
+  @@index([mitigationId])
+  @@index([requirementId])
+  @@map("mitigation_requirements")
+}
+
+// =============================================================================
+// From: 26-documents.prisma
+// =============================================================================
+
+enum DocumentType {
+  PDF
+  DOCX
+  MARKDOWN
+  TERRAFORM
+  DOCKER_COMPOSE
+  OPENAPI
+  YAML
+  TEXT
+  SOURCE_CODE
+}
+
+model Document {
+  id String @id @default(cuid())
+
+  /// Original filename
+  name String
+
+  /// Document type
+  type DocumentType
+
+  /// File size in bytes (of original upload)
+  sizeBytes Int @default(0)
+
+  /// Estimated page count (for PDFs/DOCX)
+  pageCount Int?
+
+  /// Full extracted text content
+  content String
+
+  /// Whether the content was truncated (large documents)
+  contentTruncated Boolean @default(false)
+
+  /// sha256 of content — short-circuits no-op re-uploads and anchors citations to an immutable snapshot.
+  contentHash String @default("")
+
+  /// Groups all versions of the same logical document. First version: familyId == id.
+  documentFamilyId String @default("")
+
+  /// Monotonic per-family version. v1, v2, v3 …
+  version Int @default(1)
+
+  /// Set to the time this version was superseded by a newer upload. null = current.
+  supersededAt DateTime?
+
+  /// When AI extraction was last run on this document
+  extractedAt DateTime?
+
+  /// Summary/description of what was extracted
+  extractionSummary String?
+
+  /// Number of components extracted from this document
+  extractedComponentCount Int @default(0)
+
+  /// Number of requirements extracted from this document
+  extractedRequirementCount Int @default(0)
+
+  /// Parent threat model
+  threatModel   ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+
+  /// User who imported this document
+  importedBy   User   @relation("DocumentImporter", fields: [importedById], references: [id])
+  importedById String
+
+  /// Requirements extracted from this document
+  requirements Requirement[]
+
+  /// Detected sections (used as citation anchors)
+  sections DocumentSection[]
+
+  /// Citations that point at this document
+  citations Citation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([threatModelId])
+  @@index([threatModelId, supersededAt])
+  @@index([documentFamilyId, version])
+  @@index([importedById])
+  @@map("documents")
+}
+
+// =============================================================================
+// From: 27-citations.prisma
+// =============================================================================
+
+enum CitationKind {
+  DERIVED // Direct claim from source — must verify, must match
+  INFERRED // Extrapolation from source — must verify source exists, semantic match optional
+  NOT_FOUND // LLM explicitly flagged absent — no verification, surfaces as a known gap
+  NONE // No citation provided — auto-marked unverified
+}
+
+enum CitationType {
+  DOCUMENT // Cited section / page of an imported Document
+  REFERENCE // CWE / OWASP / compliance clause
+  COMPONENT // Canvas component or boundary
+  REQUIREMENT // Imported requirement (SRS/SAD reqId)
+  NONE
+}
+
+enum VerificationStatus {
+  PENDING // Queued for verification or not yet processed
+  VERIFIED // Cross-check passed
+  UNVERIFIED // Cross-check ran but the source did not support the claim
+  PHANTOM // Citation resolves to nothing (doc / section / id not found)
+  EXEMPT // Surface is exempt from verification
+}
+
+model Citation {
+  id String @id @default(cuid())
+
+  // Classification
+  kind         CitationKind
+  citationType CitationType
+
+  // DOCUMENT citation fields (set when citationType = DOCUMENT)
+  documentId String?
+  document   Document?        @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  sectionId  String?
+  section    DocumentSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  pageNumber Int?
+  excerpt    String? // Up to ~500 chars of the supporting text
+
+  // REFERENCE citation fields (set when citationType = REFERENCE)
+  referenceKind String? // "CWE" | "OWASP" | "NIST_800_53" | "HIPAA" | etc.
+  referenceId   String? // "CWE-89" | "A03:2021" | "SC-7" | etc.
+
+  // COMPONENT citation fields (set when citationType = COMPONENT)
+  componentNodeId String? // React Flow node id
+
+  // REQUIREMENT citation fields (set when citationType = REQUIREMENT)
+  requirementId String? // FK into Requirement
+  requirement   Requirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+
+  // Verification result
+  verificationStatus VerificationStatus @default(PENDING)
+  verifiedAt         DateTime?
+  verifierConfidence Float? // 0.0 - 1.0
+  verifierRationale  String?
+  verifierProvider   String? // Which AI provider ran the cross-check
+
+  // Human override (set when a reviewer accepts/rejects a PHANTOM or UNVERIFIED citation)
+  overriddenById    String?
+  overrideRationale String?
+  overriddenAt      DateTime?
+
+  // Ownership — exactly one of threatId / mitigationId set (XOR enforced in service)
+  threatId     String?
+  threat       Threat?     @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  mitigationId String?
+  mitigation   Mitigation? @relation(fields: [mitigationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([threatId])
+  @@index([mitigationId])
+  @@index([documentId, sectionId])
+  @@index([verificationStatus])
+  @@map("citations")
+}
+
+model DocumentSection {
+  id String @id @default(cuid())
+
+  /// Parent document
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  /// Stable anchor — used in citation tags, e.g. "3.2", "appendix-a", "system-overview"
+  anchor String
+
+  /// Human-readable heading text as detected
+  header String
+
+  /// Page number if known (PDF), null otherwise
+  pageNumber Int?
+
+  /// Char offsets into Document.content
+  startOffset Int
+  endOffset   Int
+
+  /// Embedding vector stored as packed Float32 bytes (4 bytes per dimension).
+  /// Null until the embedding job runs after document import.
+  /// On SQLite (dev) this is always null — fail-open: semantic pre-check skipped.
+  embedding Bytes?
+
+  citations Citation[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([documentId, anchor])
+  @@index([documentId])
+  @@map("document_sections")
+}
+
+// =============================================================================
+// From: 28-threat-comments.prisma
+// =============================================================================
+
+model ThreatComment {
+  id        String   @id @default(cuid())
+  body      String
+  threatId  String
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  threat  Threat @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  author  User   @relation("ThreatCommentAuthor", fields: [authorId], references: [id])
+
+  @@index([threatId])
+  @@index([authorId])
+  @@map("threat_comments")
+}
+
+// =============================================================================
+// From: 29-attack-chains.prisma
+// =============================================================================
+
+enum ChainStatus {
+  AI_SUGGESTED
+  ACCEPTED
+  REJECTED
+  MODIFIED
+
+  @@map("chain_status")
+}
+
+model AttackChain {
+  id               String      @id @default(cuid())
+  threatModelId    String
+  threatModel      ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  name             String
+  description      String
+  severity         Severity
+  residualSeverity Severity?
+  likelihood       Float?
+  status           ChainStatus @default(AI_SUGGESTED)
+  sessionId        String
+  entryPointId     String
+  entryPointName   String
+  targetAssetId    String
+  targetAssetName  String
+  hops             AttackChainHop[]
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([threatModelId])
+  @@map("attack_chains")
+}
+
+model AttackChainHop {
+  id            String      @id @default(cuid())
+  chainId       String
+  chain         AttackChain @relation(fields: [chainId], references: [id], onDelete: Cascade)
+  position      Int
+  componentId   String
+  componentName String
+  connectionId  String?
+  threatId      String?
+  description   String
+  technique     String?
+  isMitigated   Boolean     @default(false)
+  mitigationIds String      @default("[]")
+  // Capability tokens (ARCHITECTURE §2.5). Stored as JSON-encoded string arrays
+  // because the datasource is SQLite (dev/desktop), which has no native String[].
+  // This mirrors the existing `mitigationIds` precedent and every other array-ish
+  // field in the schema (e.g. 17-scanners cweIds/cveIds, 22-prompts variables).
+  // The app boundary validates these as z.array(z.string()) and (de)serializes JSON.
+  preconditions String     @default("[]")
+  yields        String     @default("[]")
+
+  @@index([chainId])
+  @@map("attack_chain_hops")
+}
+
+// =============================================================================
+// From: 30-scim.prisma
+// =============================================================================
+
+model ScimToken {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  tokenHash   String    @unique // SHA-256 hash of the bearer token
+  tokenPrefix String    // first 12 chars for display/identification
+
+  description String?
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+
+  @@index([organizationId])
+  @@map("scim_tokens")
+}
+
+// =============================================================================
+// From: 31-architectural-mitigations.prisma
+// =============================================================================
+
+enum ArchitecturalChangeKind {
+  ADD_WAF
+  ADD_TRUST_BOUNDARY
+  ENCRYPT_CONNECTION
+  SPLIT_COMPONENT
+  ADD_AUTHENTICATION
+  OTHER
+
+  @@map("architectural_change_kind")
+}
+
+enum ArchitecturalMitigationStatus {
+  AI_SUGGESTED
+  ACCEPTED
+  REJECTED
+  MODIFIED
+
+  @@map("architectural_mitigation_status")
+}
+
+model ArchitecturalMitigation {
+  id                   String                        @id @default(cuid())
+  threatModelId        String
+  threatModel          ThreatModel                   @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  kind                 ArchitecturalChangeKind
+  title                String
+  proposedChange       String // Summary of the architectural change
+  rationale            String?
+  affectedComponentIds String                        @default("[]") // JSON string[] of component node ids
+  affectedConnectionIds String                       @default("[]") // JSON string[] of connection edge ids
+  threatIds            String                        @default("[]") // JSON string[] of Threat.id addressed
+  attackChainIds       String                        @default("[]") // JSON string[] of AttackChain.id addressed
+  priority             Priority                      @default(MEDIUM)
+  status               ArchitecturalMitigationStatus @default(AI_SUGGESTED)
+  source               String                        @default("AI") // AI | HUMAN
+  sessionId            String?
+  createdAt            DateTime                      @default(now())
+  updatedAt            DateTime                      @updatedAt
+
+  @@index([threatModelId])
+  @@map("architectural_mitigations")
+}

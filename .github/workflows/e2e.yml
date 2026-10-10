@@ -1,0 +1,121 @@
+name: E2E
+
+# Self-booting end-to-end suite. Moved off the per-push hot path (see ci.yml):
+# E2E is slow (Playwright + chromium) and was a guaranteed red because the old
+# job never booted the app. This workflow boots the real stack — Fastify backend
+# (:3001) + Next.js frontend (:3000) sharing one seeded SQLite DB — and runs the
+# smoke + authenticated projects only. NEVER runs product-tour/use-cases/etc.
+# (those hit prod).
+on:
+  schedule:
+    - cron: '0 7 * * *' # 07:00 UTC nightly
+  workflow_dispatch: {} # manual trigger
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  e2e:
+    name: E2E (smoke + authenticated)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      # Absolute path so the backend (cwd server/) and frontend (cwd frontend/)
+      # — and the seed step — all share ONE database file.
+      DATABASE_URL: 'file:${{ github.workspace }}/server/prisma/e2e.db'
+      AUTH_SECRET: 'e2e-ci-insecure-secret-not-for-prod'
+      JWT_SECRET: 'e2e-ci-insecure-secret-not-for-prod'
+      NEXT_PUBLIC_API_URL: 'http://localhost:3001'
+      E2E_TEST_EMAIL: 'e2e-admin@example.com'
+      E2E_TEST_PASSWORD: 'E2eTestPass123!'
+      # Skip the prod-targeted global setup; smoke/authenticated log in locally
+      # via the `setup` project against the booted stack.
+      E2E_SKIP_GLOBAL_SETUP: '1'
+      PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION: 'yes'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            frontend/package-lock.json
+            server/package-lock.json
+
+      - name: Install server dependencies
+        run: npm ci || (echo "npm ci failed — clearing cache and retrying" && npm cache clean --force && sleep 5 && npm ci)
+        working-directory: server
+
+      - name: Install frontend dependencies
+        run: npm ci || (echo "npm ci failed — clearing cache and retrying" && npm cache clean --force && sleep 5 && npm ci)
+        working-directory: frontend
+
+      # Backend Prisma client + push schema to the shared SQLite DB.
+      - name: Generate backend Prisma client
+        run: npx prisma generate
+        working-directory: server
+
+      - name: Push schema to SQLite DB
+        # --force-reset + --accept-data-loss is the proven recipe (matches
+        # src/test/setup.ts); plain `db push --skip-generate` left tables like
+        # ai_jobs uncreated, crashing the backend on boot. PRISMA_USER_CONSENT
+        # (job env) authorizes the reset.
+        run: npx prisma db push --accept-data-loss --force-reset
+        working-directory: server
+
+      # Frontend has its own Prisma schema (synced from backend); `next build`/dev
+      # type-checks against it. Generate the client so the dev server boots clean.
+      - name: Generate frontend Prisma client
+        run: npx prisma generate
+        working-directory: frontend
+
+      # Seed the admin + org the login flow authenticates against. Idempotent:
+      # exit 1 = "already setup" (fine on a re-run before DB is wiped).
+      - name: Seed admin + organization
+        run: |
+          npm run setup:cli -- \
+            --admin-email "$E2E_TEST_EMAIL" \
+            --admin-password "$E2E_TEST_PASSWORD" \
+            --admin-name "E2E Admin" \
+            --org-name "E2E Org" \
+            --org-slug e2e-org \
+            --json || [ $? -eq 1 ]
+        working-directory: server
+
+      # Second, distinct user for the two-session collab spec (collaboration.spec.ts).
+      # A 2nd login as the admin rotates its session, so the two collab contexts
+      # need different users. Seeded with the SAME password so the spec can reuse
+      # E2E_TEST_PASSWORD for both. Idempotent.
+      - name: Seed collab user
+        run: COLLAB_USER_PASSWORD="$E2E_TEST_PASSWORD" npm run seed:collab-user
+        working-directory: server
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      # The webServer block in playwright.config.ts boots BOTH servers
+      # (reuseExistingServer is false under CI). The `setup` project logs in once
+      # and saves the session for the `authenticated` project.
+      - name: Run E2E (smoke + authenticated)
+        run: npx playwright test --project=smoke --project=authenticated
+        working-directory: frontend
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 14
+
+      - name: Upload test results (traces, junit)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: frontend/test-results/
+          retention-days: 14

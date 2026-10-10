@@ -1,0 +1,485 @@
+/**
+ * GCP Component Definitions
+ */
+
+import {
+  Server,
+  Zap,
+  Ship,
+  Container,
+  Boxes,
+  Archive,
+  HardDrive,
+  FolderOpen,
+  Database,
+  MemoryStick,
+  Network,
+  Globe2,
+  Milestone,
+  Router,
+  Shield,
+  Lock,
+  KeyRound,
+  UserCheck,
+  Mail,
+  Radio,
+  Workflow,
+  Brain,
+  Sparkles,
+  Eye,
+  MessageSquare,
+  Bot,
+  CircuitBoard,
+  BarChart3,
+  Layers,
+  GitBranch,
+  Send,
+  Terminal,
+  Activity,
+  AlertTriangle,
+  FileSearch,
+} from "lucide-react";
+import type { PaletteItem } from "../types";
+
+export const gcpCompute: PaletteItem[] = [
+  {
+    type: "GCP_COMPUTE",
+    label: "Compute Engine",
+    Icon: Server,
+    description: "VM instances",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_FUNCTIONS",
+    label: "Cloud Functions",
+    Icon: Zap,
+    description: "Serverless",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_GKE",
+    label: "GKE",
+    Icon: Ship,
+    description: "Kubernetes",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_CLOUD_RUN",
+    label: "Cloud Run",
+    Icon: Container,
+    description: "Serverless containers",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_APP_ENGINE",
+    label: "App Engine",
+    Icon: Boxes,
+    description: "PaaS",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_ANTHOS",
+    label: "Anthos",
+    Icon: Ship,
+    description: "Hybrid cloud",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_BATCH",
+    label: "Batch",
+    Icon: Boxes,
+    description: "Batch jobs",
+    color: "text-blue-500",
+  },
+];
+
+export const gcpStorage: PaletteItem[] = [
+  {
+    type: "GCP_STORAGE",
+    label: "Cloud Storage",
+    Icon: Archive,
+    description: "Object storage",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_PERSISTENT_DISK",
+    label: "Persistent Disk",
+    Icon: HardDrive,
+    description: "Block storage",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_FILESTORE",
+    label: "Filestore",
+    Icon: FolderOpen,
+    description: "NFS storage",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_ARCHIVE_STORAGE",
+    label: "Archive Storage",
+    Icon: Archive,
+    description: "Cold storage",
+    color: "text-blue-500",
+  },
+];
+
+export const gcpDatabase: PaletteItem[] = [
+  {
+    type: "GCP_CLOUDSQL",
+    label: "Cloud SQL",
+    Icon: Database,
+    description: "Managed SQL",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_FIRESTORE",
+    label: "Firestore",
+    Icon: Database,
+    description: "Document DB",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_BIGTABLE",
+    label: "Bigtable",
+    Icon: Database,
+    description: "Wide-column",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_SPANNER",
+    label: "Spanner",
+    Icon: Database,
+    description: "Global SQL",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_MEMORYSTORE",
+    label: "Memorystore",
+    Icon: MemoryStick,
+    description: "Redis cache",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_DATASTORE",
+    label: "Datastore",
+    Icon: Database,
+    description: "NoSQL",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_ALLOYDB",
+    label: "AlloyDB",
+    Icon: Database,
+    description: "PostgreSQL",
+    color: "text-blue-500",
+  },
+];
+
+export const gcpNetworking: PaletteItem[] = [
+  {
+    type: "GCP_VPC",
+    label: "VPC",
+    Icon: Network,
+    description: "Virtual network",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_CLOUD_CDN",
+    label: "Cloud CDN",
+    Icon: Globe2,
+    description: "Content delivery",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_CLOUD_DNS",
+    label: "Cloud DNS",
+    Icon: Milestone,
+    description: "DNS service",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_LOAD_BALANCING",
+    label: "Load Balancing",
+    Icon: Network,
+    description: "Global LB",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_CLOUD_NAT",
+    label: "Cloud NAT",
+    Icon: Router,
+    description: "NAT gateway",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_CLOUD_ARMOR",
+    label: "Cloud Armor",
+    Icon: Shield,
+    description: "DDoS/WAF",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_CLOUD_INTERCONNECT",
+    label: "Interconnect",
+    Icon: Network,
+    description: "Dedicated",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_TRAFFIC_DIRECTOR",
+    label: "Traffic Director",
+    Icon: Router,
+    description: "Service mesh",
+    color: "text-blue-500",
+  },
+];
+
+export const gcpSecurity: PaletteItem[] = [
+  {
+    type: "GCP_IAM",
+    label: "IAM",
+    Icon: KeyRound,
+    description: "Identity management",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_KMS",
+    label: "KMS",
+    Icon: Lock,
+    description: "Key management",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_SECRET_MANAGER",
+    label: "Secret Manager",
+    Icon: Lock,
+    description: "Secrets store",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_IDENTITY_PLATFORM",
+    label: "Identity Platform",
+    Icon: UserCheck,
+    description: "Auth service",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_SECURITY_COMMAND_CENTER",
+    label: "Security CC",
+    Icon: Shield,
+    description: "Security center",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_CERTIFICATE_MANAGER",
+    label: "Certificate Mgr",
+    Icon: Lock,
+    description: "SSL/TLS certs",
+    color: "text-blue-500",
+  },
+];
+
+export const gcpMessaging: PaletteItem[] = [
+  {
+    type: "GCP_PUBSUB",
+    label: "Pub/Sub",
+    Icon: Mail,
+    description: "Messaging",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_CLOUD_TASKS",
+    label: "Cloud Tasks",
+    Icon: Boxes,
+    description: "Task queue",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_EVENTARC",
+    label: "Eventarc",
+    Icon: Radio,
+    description: "Event routing",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_WORKFLOWS",
+    label: "Workflows",
+    Icon: Workflow,
+    description: "Orchestration",
+    color: "text-blue-500",
+  },
+];
+
+export const gcpAIML: PaletteItem[] = [
+  {
+    type: "GCP_VERTEX_AI",
+    label: "Vertex AI",
+    Icon: Brain,
+    description: "ML platform",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_AUTOML",
+    label: "AutoML",
+    Icon: Sparkles,
+    description: "Auto ML training",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_VISION_AI",
+    label: "Vision AI",
+    Icon: Eye,
+    description: "Image analysis",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_NATURAL_LANGUAGE",
+    label: "Natural Language",
+    Icon: MessageSquare,
+    description: "NLP",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_SPEECH_TO_TEXT",
+    label: "Speech-to-Text",
+    Icon: MessageSquare,
+    description: "Transcription",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_TRANSLATION",
+    label: "Translation",
+    Icon: Globe2,
+    description: "Translate API",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_DIALOGFLOW",
+    label: "Dialogflow",
+    Icon: Bot,
+    description: "Chatbots",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_DOCUMENT_AI",
+    label: "Document AI",
+    Icon: FileSearch,
+    description: "Doc processing",
+    color: "text-blue-500",
+  },
+];
+
+export const gcpAnalytics: PaletteItem[] = [
+  {
+    type: "GCP_BIGQUERY",
+    label: "BigQuery",
+    Icon: Database,
+    description: "Data warehouse",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_DATAFLOW",
+    label: "Dataflow",
+    Icon: Workflow,
+    description: "Stream/batch",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_DATAPROC",
+    label: "Dataproc",
+    Icon: CircuitBoard,
+    description: "Hadoop/Spark",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_COMPOSER",
+    label: "Composer",
+    Icon: Workflow,
+    description: "Airflow",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_DATA_FUSION",
+    label: "Data Fusion",
+    Icon: Workflow,
+    description: "ETL service",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_LOOKER",
+    label: "Looker",
+    Icon: BarChart3,
+    description: "BI platform",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_DATAPLEX",
+    label: "Dataplex",
+    Icon: Layers,
+    description: "Data fabric",
+    color: "text-blue-500",
+  },
+];
+
+export const gcpDevOps: PaletteItem[] = [
+  {
+    type: "GCP_CLOUD_BUILD",
+    label: "Cloud Build",
+    Icon: Terminal,
+    description: "CI/CD",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_ARTIFACT_REGISTRY",
+    label: "Artifact Registry",
+    Icon: Archive,
+    description: "Package registry",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_CLOUD_DEPLOY",
+    label: "Cloud Deploy",
+    Icon: Send,
+    description: "CD service",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_SOURCE_REPOS",
+    label: "Source Repos",
+    Icon: GitBranch,
+    description: "Git repos",
+    color: "text-blue-500",
+  },
+];
+
+export const gcpManagement: PaletteItem[] = [
+  {
+    type: "GCP_CLOUD_LOGGING",
+    label: "Cloud Logging",
+    Icon: FileSearch,
+    description: "Log management",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_CLOUD_MONITORING",
+    label: "Cloud Monitoring",
+    Icon: Activity,
+    description: "Metrics",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_CLOUD_TRACE",
+    label: "Cloud Trace",
+    Icon: Activity,
+    description: "Distributed tracing",
+    color: "text-blue-500",
+  },
+  {
+    type: "GCP_ERROR_REPORTING",
+    label: "Error Reporting",
+    Icon: AlertTriangle,
+    description: "Error tracking",
+    color: "text-blue-500",
+  },
+];

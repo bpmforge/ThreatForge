@@ -1,0 +1,22 @@
+// knip config for frontend/ — run by scripts/code-health.sh with --directory frontend.
+// Next.js app-router files (page/layout/route/middleware/...) are entries via knip's
+// built-in Next.js plugin. The entries below encode the remaining false-positive
+// families from the 2026-10 audit, so whatever knip still reports is real.
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    // FP family: standalone scripts run by hand (`node scripts/x.mjs`).
+    "scripts/**/*.{mjs,ts}",
+    // FP family: Playwright setup project (testMatch: /auth\.setup\.ts/) + globalSetup.
+    "e2e/**/*.setup.ts",
+    "e2e/global-setup.ts"
+  ],
+  // FP family: prisma schemas + seeds generated from the server schema (scripts/sync-schemas.ts).
+  // Test support used only by test files, which are outside the knip project.
+  "ignore": ["e2e/**"],
+  "ignoreFiles": ["prisma/**"],
+  "ignoreDependencies": [
+    // Pinned devDependency that silences browserslist's stale-data warning; never imported.
+    "baseline-browser-mapping"
+  ]
+}

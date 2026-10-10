@@ -1,0 +1,802 @@
+[
+  {
+    "key": "comp-api-gateway::DENIAL_OF_SERVICE::api breaker circuit core forwarding request rest unbounded without",
+    "name": "Unbounded request forwarding to Core REST API without circuit breaker",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "CRITICAL",
+    "componentId": "comp-api-gateway",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-api-gateway::DENIAL_OF_SERVICE::exhaustion jwt malformed resource token validation",
+    "name": "JWT validation resource exhaustion via malformed tokens",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "CRITICAL",
+    "componentId": "comp-api-gateway",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-api-gateway::ELEVATION_OF_PRIVILEGE::authz based endpoint missing role route specific",
+    "name": "Missing role-based authorization on route-specific endpoints",
+    "category": "ELEVATION_OF_PRIVILEGE",
+    "severity": "CRITICAL",
+    "componentId": "comp-api-gateway",
+    "mitigationCount": 4
+  },
+  {
+    "key": "comp-api-gateway::ELEVATION_OF_PRIVILEGE::claim escalation jwt leading manipulation role",
+    "name": "JWT claim manipulation leading to role escalation",
+    "category": "ELEVATION_OF_PRIVILEGE",
+    "severity": "CRITICAL",
+    "componentId": "comp-api-gateway",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-api-gateway::INFORMATION_DISCLOSURE::error jwt leakage response token verbose",
+    "name": "JWT token leakage via verbose error responses",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "CRITICAL",
+    "componentId": "comp-api-gateway",
+    "mitigationCount": 4
+  },
+  {
+    "key": "comp-api-gateway::REPUDIATION::audit failures jwt logging missing validation",
+    "name": "Missing audit logging for JWT validation failures",
+    "category": "REPUDIATION",
+    "severity": "CRITICAL",
+    "componentId": "comp-api-gateway",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-api-gateway::SPOOFING::api certs client gateway identity malformed spoofing tls",
+    "name": "API Gateway identity spoofing via malformed TLS client certs",
+    "category": "SPOOFING",
+    "severity": "HIGH",
+    "componentId": "comp-api-gateway",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-api-gateway::SPOOFING::jwt nonce replay token unbound",
+    "name": "JWT token replay via unbound nonce",
+    "category": "SPOOFING",
+    "severity": "CRITICAL",
+    "componentId": "comp-api-gateway",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-api-gateway::TAMPERING::bypass jwt signature tampering token",
+    "name": "JWT Token Tampering via Signature Bypass",
+    "category": "TAMPERING",
+    "severity": "CRITICAL",
+    "componentId": "comp-api-gateway",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-auth-service::DENIAL_OF_SERVICE::backpressure computation credential dos hash password stuffing without",
+    "name": "Password hash computation without backpressure enables credential stuffing DoS",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "CRITICAL",
+    "componentId": "comp-auth-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-auth-service::DENIAL_OF_SERVICE::bounded breaker bursts cache circuit during eviction lookup oom redis token without",
+    "name": "Redis cache without circuit breaker or bounded eviction risks OOM during token lookup bursts",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "HIGH",
+    "componentId": "comp-auth-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-auth-service::DENIAL_OF_SERVICE::brute force forgery jwt limiting rate token verification without",
+    "name": "JWT verification without rate limiting enables brute-force token forgery",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "CRITICAL",
+    "componentId": "comp-auth-service",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-auth-service::INFORMATION_DISCLOSURE::cache encryption mfa missing redis secrets stored",
+    "name": "Unencrypted MFA secrets stored in Redis cache",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "CRITICAL",
+    "componentId": "comp-auth-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-auth-service::REPUDIATION::audit credential jwt logging missing operations verification",
+    "name": "Missing audit logging for JWT verification and credential operations",
+    "category": "REPUDIATION",
+    "severity": "CRITICAL",
+    "componentId": "comp-auth-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-auth-service::REPUDIATION::issuance mfa missing non password repudiation reset secret",
+    "name": "No non-repudiation for password reset and MFA secret issuance",
+    "category": "REPUDIATION",
+    "severity": "CRITICAL",
+    "componentId": "comp-auth-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-auth-service::SPOOFING::binding client identity missing refresh replay token",
+    "name": "Refresh token replay via insufficient binding to client identity",
+    "category": "SPOOFING",
+    "severity": "CRITICAL",
+    "componentId": "comp-auth-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-auth-service::SPOOFING::forgery jose jwt library signature token validation weak",
+    "name": "JWT token forgery via weak signature validation in jose library",
+    "category": "SPOOFING",
+    "severity": "CRITICAL",
+    "componentId": "comp-auth-service",
+    "mitigationCount": 4
+  },
+  {
+    "key": "comp-billing-service::DENIAL_OF_SERVICE::api bypass chained charge limit rate request stripe",
+    "name": "Stripe API rate limit bypass via chained charge requests",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "MEDIUM",
+    "componentId": "comp-billing-service",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-billing-service::DENIAL_OF_SERVICE::exhaustion invoice query unbounded",
+    "name": "Unbounded invoice query exhaustion",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "HIGH",
+    "componentId": "comp-billing-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-billing-service::ELEVATION_OF_PRIVILEGE::access account over postgresql privileged service",
+    "name": "Over-privileged Service Account for PostgreSQL Access",
+    "category": "ELEVATION_OF_PRIVILEGE",
+    "severity": "HIGH",
+    "componentId": "comp-billing-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-billing-service::ELEVATION_OF_PRIVILEGE::authz charge creation endpoint missing",
+    "name": "Missing Authorization on Charge Creation Endpoint",
+    "category": "ELEVATION_OF_PRIVILEGE",
+    "severity": "CRITICAL",
+    "componentId": "comp-billing-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-billing-service::INFORMATION_DISCLOSURE::error exposed logs payment response token",
+    "name": "Payment tokens exposed in error responses or logs",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "CRITICAL",
+    "componentId": "comp-billing-service",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-billing-service::INFORMATION_DISCLOSURE::invoice plaintext records stored transmitted",
+    "name": "Invoice records transmitted or stored in plaintext",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "HIGH",
+    "componentId": "comp-billing-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-billing-service::REPUDIATION::audit billing events missing trail",
+    "name": "Missing audit trail for billing events",
+    "category": "REPUDIATION",
+    "severity": "HIGH",
+    "componentId": "comp-billing-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-billing-service::REPUDIATION::charge initiation missing payment repudiation request signing stripe",
+    "name": "Unsigned Stripe charge requests enable repudiation of payment initiation",
+    "category": "REPUDIATION",
+    "severity": "CRITICAL",
+    "componentId": "comp-billing-service",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-billing-service::SPOOFING::certificate grpc missing mtls pinning spoofing",
+    "name": "Missing mTLS Certificate Pinning Enables gRPC Spoofing",
+    "category": "SPOOFING",
+    "severity": "HIGH",
+    "componentId": "comp-billing-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-billing-service::TAMPERING::grpc input invoice missing record tampering validation",
+    "name": "Invoice Record Tampering via Unvalidated gRPC Input",
+    "category": "TAMPERING",
+    "severity": "HIGH",
+    "componentId": "comp-billing-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-core-api::DENIAL_OF_SERVICE::abuse exhaustion grpc leading memory message size",
+    "name": "gRPC Message Size Abuse Leading to Memory Exhaustion",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "CRITICAL",
+    "componentId": "comp-core-api",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-core-api::DENIAL_OF_SERVICE::exhaustion missing rate request restriction",
+    "name": "Unrestricted Request Rate Exhaustion",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "CRITICAL",
+    "componentId": "comp-core-api",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-core-api::ELEVATION_OF_PRIVILEGE::authz creation endpoint missing order",
+    "name": "Missing Authorization on Order Creation Endpoint",
+    "category": "ELEVATION_OF_PRIVILEGE",
+    "severity": "CRITICAL",
+    "componentId": "comp-core-api",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-core-api::INFORMATION_DISCLOSURE::auth claims error leakage response",
+    "name": "Auth claims leakage in error responses",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "HIGH",
+    "componentId": "comp-core-api",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-core-api::INFORMATION_DISCLOSURE::cache encryption leakage missing pii redis",
+    "name": "PII leakage via unencrypted Redis cache",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "CRITICAL",
+    "componentId": "comp-core-api",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-core-api::INFORMATION_DISCLOSURE::exposure pii response shaping unintended",
+    "name": "Unintended PII exposure via response shaping",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "CRITICAL",
+    "componentId": "comp-core-api",
+    "mitigationCount": 4
+  },
+  {
+    "key": "comp-core-api::REPUDIATION::audit creation logging missing order payment transactions",
+    "name": "Missing audit logging for order creation and payment transactions",
+    "category": "REPUDIATION",
+    "severity": "CRITICAL",
+    "componentId": "comp-core-api",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-core-api::REPUDIATION::dispatch email external missing non repudiation sendgrid",
+    "name": "No non-repudiation for external email dispatch via SendGrid",
+    "category": "REPUDIATION",
+    "severity": "CRITICAL",
+    "componentId": "comp-core-api",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-core-api::SPOOFING::fastify forgery jwt signature token validation weak",
+    "name": "JWT token forgery via weak signature validation in Fastify",
+    "category": "SPOOFING",
+    "severity": "CRITICAL",
+    "componentId": "comp-core-api",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-core-api::SPOOFING::grpc impersonation misconfiguration mtls service",
+    "name": "gRPC mTLS misconfiguration enables service impersonation",
+    "category": "SPOOFING",
+    "severity": "CRITICAL",
+    "componentId": "comp-core-api",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-core-api::TAMPERING::data input missing order sanitization tampering",
+    "name": "Order Data Tampering via Missing Input Sanitization",
+    "category": "TAMPERING",
+    "severity": "CRITICAL",
+    "componentId": "comp-core-api",
+    "mitigationCount": 4
+  },
+  {
+    "key": "comp-email-provider::DENIAL_OF_SERVICE::abuse api auth exhaustion leading limit missing rate",
+    "name": "Unauthenticated API abuse leading to rate limit exhaustion",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "MEDIUM",
+    "componentId": "comp-email-provider",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-email-provider::INFORMATION_DISCLOSURE::api error exposure key response",
+    "name": "API key exposure via error responses",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "HIGH",
+    "componentId": "comp-email-provider",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-email-provider::REPUDIATION::api delivery email events missing non repudiation sendgrid",
+    "name": "Missing non-repudiation for SendGrid API email delivery events",
+    "category": "REPUDIATION",
+    "severity": "MEDIUM",
+    "componentId": "comp-email-provider",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-email-provider::SPOOFING::api compromise email key spoofing",
+    "name": "API Key Compromise Enables Email Spoofing",
+    "category": "SPOOFING",
+    "severity": "HIGH",
+    "componentId": "comp-email-provider",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-email-provider::TAMPERING::api key parameter replay sendgrid tampering v3",
+    "name": "API Key Replay and Parameter Tampering via SendGrid v3 API",
+    "category": "TAMPERING",
+    "severity": "HIGH",
+    "componentId": "comp-email-provider",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-end-user::DENIAL_OF_SERVICE::auth checkout endpoint flood form input missing targeting",
+    "name": "Unauthenticated form input flood targeting checkout endpoint",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "MEDIUM",
+    "componentId": "comp-end-user",
+    "mitigationCount": 4
+  },
+  {
+    "key": "comp-end-user::ELEVATION_OF_PRIVILEGE::abuse auth checkout form hijacking missing session",
+    "name": "Missing authentication on checkout form enables session hijacking abuse",
+    "category": "ELEVATION_OF_PRIVILEGE",
+    "severity": "CRITICAL",
+    "componentId": "comp-end-user",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-end-user::REPUDIATION::auth checkout form missing purchase repudiation",
+    "name": "Unauthenticated checkout form enables repudiation of purchase",
+    "category": "REPUDIATION",
+    "severity": "MEDIUM",
+    "componentId": "comp-end-user",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-end-user::TAMPERING::checkout during form input tampering",
+    "name": "Form input tampering during checkout",
+    "category": "TAMPERING",
+    "severity": "HIGH",
+    "componentId": "comp-end-user",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-order-service::DENIAL_OF_SERVICE::exhausting insertion order postgresql record resources unbounded",
+    "name": "Unbounded order record insertion exhausting PostgreSQL resources",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "HIGH",
+    "componentId": "comp-order-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-order-service::ELEVATION_OF_PRIVILEGE::accessing account over postgresql privileged service",
+    "name": "Over-privileged service account accessing PostgreSQL",
+    "category": "ELEVATION_OF_PRIVILEGE",
+    "severity": "HIGH",
+    "componentId": "comp-order-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-order-service::ELEVATION_OF_PRIVILEGE::authz creation endpoint missing order",
+    "name": "Missing authorization on order creation endpoint",
+    "category": "ELEVATION_OF_PRIVILEGE",
+    "severity": "HIGH",
+    "componentId": "comp-order-service",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-order-service::INFORMATION_DISCLOSURE::addresses communication database encryption exposed missing order records shipping",
+    "name": "Order records and shipping addresses exposed via unencrypted database communication",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "HIGH",
+    "componentId": "comp-order-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-order-service::REPUDIATION::audit creation logging missing order publishing",
+    "name": "Missing audit logging for order creation and publishing",
+    "category": "REPUDIATION",
+    "severity": "HIGH",
+    "componentId": "comp-order-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-order-service::SPOOFING::amqp auth basic credential over replay",
+    "name": "Basic auth over AMQP exposes credential replay risk",
+    "category": "SPOOFING",
+    "severity": "HIGH",
+    "componentId": "comp-order-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-order-service::SPOOFING::grpc impersonation misconfiguration mtls service",
+    "name": "gRPC mTLS misconfiguration enables service impersonation",
+    "category": "SPOOFING",
+    "severity": "CRITICAL",
+    "componentId": "comp-order-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-order-service::TAMPERING::injection insertion order record sql",
+    "name": "SQL injection in order record insertion",
+    "category": "TAMPERING",
+    "severity": "CRITICAL",
+    "componentId": "comp-order-service",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-payment-gateway::DENIAL_OF_SERVICE::auth charge create endpoint limiting missing rate",
+    "name": "Unauthenticated rate limiting on Create Charge endpoint",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "MEDIUM",
+    "componentId": "comp-payment-gateway",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-payment-gateway::ELEVATION_OF_PRIVILEGE::authz charge creation missing",
+    "name": "Missing Authorization on Charge Creation",
+    "category": "ELEVATION_OF_PRIVILEGE",
+    "severity": "CRITICAL",
+    "componentId": "comp-payment-gateway",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-payment-gateway::INFORMATION_DISCLOSURE::api error exposure payment response token verbose",
+    "name": "Payment token exposure via verbose API error responses",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "HIGH",
+    "componentId": "comp-payment-gateway",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-payment-gateway::REPUDIATION::charge creation events missing non repudiation",
+    "name": "Missing non-repudiation for charge creation events",
+    "category": "REPUDIATION",
+    "severity": "MEDIUM",
+    "componentId": "comp-payment-gateway",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-payment-gateway::SPOOFING::api charge exfiltration forgery key",
+    "name": "API Key Exfiltration Enables Charge Forgery",
+    "category": "SPOOFING",
+    "severity": "CRITICAL",
+    "componentId": "comp-payment-gateway",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-payment-gateway::TAMPERING::amount charge missing payload signing tampering webhook",
+    "name": "Charge amount tampering via unsigned webhook payload",
+    "category": "TAMPERING",
+    "severity": "CRITICAL",
+    "componentId": "comp-payment-gateway",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-postgres::DENIAL_OF_SERVICE::auth endpoint execution missing query search unbounded",
+    "name": "Unbounded query execution via unauthenticated search endpoint",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "CRITICAL",
+    "componentId": "comp-postgres",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-postgres::ELEVATION_OF_PRIVILEGE::account order over privileged service",
+    "name": "Over-privileged service account for Order Service",
+    "category": "ELEVATION_OF_PRIVILEGE",
+    "severity": "CRITICAL",
+    "componentId": "comp-postgres",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-postgres::INFORMATION_DISCLOSURE::column data error leaking message structure table verbose",
+    "name": "Verbose error messages leaking table/column structure or data",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "HIGH",
+    "componentId": "comp-postgres",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-postgres::INFORMATION_DISCLOSURE::encryption exposing hashes logs missing password pii query",
+    "name": "Unencrypted query logs exposing PII and password hashes",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "CRITICAL",
+    "componentId": "comp-postgres",
+    "mitigationCount": 4
+  },
+  {
+    "key": "comp-postgres::REPUDIATION::audit data missing non operations repudiable restricted trail",
+    "name": "Missing non-repudiable audit trail for RESTRICTED data operations",
+    "category": "REPUDIATION",
+    "severity": "CRITICAL",
+    "componentId": "comp-postgres",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-postgres::REPUDIATION::digital financial missing signatures transactions",
+    "name": "Lack of digital signatures on financial transactions",
+    "category": "REPUDIATION",
+    "severity": "HIGH",
+    "componentId": "comp-postgres",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-postgres::SPOOFING::auth basic channel encryption missing postgresql replay",
+    "name": "Basic Auth replay via unencrypted channel to PostgreSQL",
+    "category": "SPOOFING",
+    "severity": "CRITICAL",
+    "componentId": "comp-postgres",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-postgres::SPOOFING::credential hash impersonate password storage stuffing user weak",
+    "name": "Weak password hash storage enables credential stuffing to impersonate users",
+    "category": "SPOOFING",
+    "severity": "CRITICAL",
+    "componentId": "comp-postgres",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-postgres::TAMPERING::injection insert order service sql",
+    "name": "SQL Injection via Order Service INSERT",
+    "category": "TAMPERING",
+    "severity": "CRITICAL",
+    "componentId": "comp-postgres",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-rabbitmq::DENIAL_OF_SERVICE::backpressure billing breaker circuit enforcement events high missing volume",
+    "name": "No circuit breaker or backpressure enforcement for high-volume billing events",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "MEDIUM",
+    "componentId": "comp-rabbitmq",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-rabbitmq::DENIAL_OF_SERVICE::limiting message publishing rate unbounded without",
+    "name": "Unbounded message publishing without rate limiting",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "HIGH",
+    "componentId": "comp-rabbitmq",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-rabbitmq::ELEVATION_OF_PRIVILEGE::account event order over privileged publishing service",
+    "name": "Over-privileged Service Account for Order Event Publishing",
+    "category": "ELEVATION_OF_PRIVILEGE",
+    "severity": "MEDIUM",
+    "componentId": "comp-rabbitmq",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-rabbitmq::ELEVATION_OF_PRIVILEGE::authz interface management missing rabbitmq",
+    "name": "Missing RabbitMQ Management Interface Authorization",
+    "category": "ELEVATION_OF_PRIVILEGE",
+    "severity": "HIGH",
+    "componentId": "comp-rabbitmq",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-rabbitmq::INFORMATION_DISCLOSURE::access controls default queue resources weak",
+    "name": "Default or weak access controls on queue resources",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "HIGH",
+    "componentId": "comp-rabbitmq",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-rabbitmq::INFORMATION_DISCLOSURE::content encryption message missing transit",
+    "name": "Unencrypted message content in transit",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "HIGH",
+    "componentId": "comp-rabbitmq",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-rabbitmq::REPUDIATION::amqp message missing non publishing repudiation",
+    "name": "Lack of non-repudiation for AMQP message publishing",
+    "category": "REPUDIATION",
+    "severity": "MEDIUM",
+    "componentId": "comp-rabbitmq",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-rabbitmq::REPUDIATION::audit consumption events logging message missing publishing",
+    "name": "Missing audit logging for message publishing and consumption events",
+    "category": "REPUDIATION",
+    "severity": "HIGH",
+    "componentId": "comp-rabbitmq",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-rabbitmq::SPOOFING::amqp auth basic channel credential theft",
+    "name": "Credential theft via Basic Auth in AMQP channel",
+    "category": "SPOOFING",
+    "severity": "HIGH",
+    "componentId": "comp-rabbitmq",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-redis::DENIAL_OF_SERVICE::cache catalog execution lookups query unbounded",
+    "name": "Unbounded query execution via catalog cache lookups",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "HIGH",
+    "componentId": "comp-redis",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-redis::DENIAL_OF_SERVICE::cluster failure point redis single topology",
+    "name": "Single point of failure in Redis cluster topology",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "CRITICAL",
+    "componentId": "comp-redis",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-redis::ELEVATION_OF_PRIVILEGE::api auth compromise escalation hardening key missing privilege redis",
+    "name": "Missing Redis authentication hardening enables privilege escalation via API key compromise",
+    "category": "ELEVATION_OF_PRIVILEGE",
+    "severity": "HIGH",
+    "componentId": "comp-redis",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-redis::INFORMATION_DISCLOSURE::data encryption missing rest",
+    "name": "Unencrypted Data at Rest",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "MEDIUM",
+    "componentId": "comp-redis",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-redis::INFORMATION_DISCLOSURE::data encryption missing transit",
+    "name": "Unencrypted Data in Transit",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "HIGH",
+    "componentId": "comp-redis",
+    "mitigationCount": 4
+  },
+  {
+    "key": "comp-redis::REPUDIATION::catalog data missing modifications non repudiation",
+    "name": "No non-repudiation for catalog data modifications",
+    "category": "REPUDIATION",
+    "severity": "MEDIUM",
+    "componentId": "comp-redis",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-redis::TAMPERING::api authz bypass key missing modification",
+    "name": "Unauthorized key modification via API_KEY bypass",
+    "category": "TAMPERING",
+    "severity": "CRITICAL",
+    "componentId": "comp-redis",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-redis::TAMPERING::cache command injection missing operations validation",
+    "name": "Command injection via unvalidated cache operations",
+    "category": "TAMPERING",
+    "severity": "HIGH",
+    "componentId": "comp-redis",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-redis::TAMPERING::cache input poisoning unsanitized user",
+    "name": "Cache poisoning via unsanitized user input",
+    "category": "TAMPERING",
+    "severity": "HIGH",
+    "componentId": "comp-redis",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-web-portal::DENIAL_OF_SERVICE::abuse checkout creation endpoint order unthrottled",
+    "name": "Checkout endpoint abuse via unthrottled order creation",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "CRITICAL",
+    "componentId": "comp-web-portal",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-web-portal::DENIAL_OF_SERVICE::cart exhaustion growth leading memory session unbounded",
+    "name": "Unbounded cart session growth leading to memory exhaustion",
+    "category": "DENIAL_OF_SERVICE",
+    "severity": "CRITICAL",
+    "componentId": "comp-web-portal",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-web-portal::ELEVATION_OF_PRIVILEGE::cart input leading manipulation missing order price tampering user validation",
+    "name": "Cart manipulation via unvalidated user input leading to order price tampering",
+    "category": "ELEVATION_OF_PRIVILEGE",
+    "severity": "CRITICAL",
+    "componentId": "comp-web-portal",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-web-portal::ELEVATION_OF_PRIVILEGE::catalog leakage pages rendered server session side ssrf token",
+    "name": "Session token leakage via SSRF in server-side rendered catalog pages",
+    "category": "ELEVATION_OF_PRIVILEGE",
+    "severity": "CRITICAL",
+    "componentId": "comp-web-portal",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-web-portal::INFORMATION_DISCLOSURE::checkout during error leakage pii response verbose",
+    "name": "PII leakage via verbose error responses during checkout",
+    "category": "INFORMATION_DISCLOSURE",
+    "severity": "HIGH",
+    "componentId": "comp-web-portal",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-web-portal::REPUDIATION::actions audit checkout logging missing",
+    "name": "Missing audit logging for checkout actions",
+    "category": "REPUDIATION",
+    "severity": "HIGH",
+    "componentId": "comp-web-portal",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-web-portal::REPUDIATION::against cart checkout data during injection log missing protection submitted user",
+    "name": "No protection against log injection during user-submitted cart/checkout data",
+    "category": "REPUDIATION",
+    "severity": "MEDIUM",
+    "componentId": "comp-web-portal",
+    "mitigationCount": 5
+  },
+  {
+    "key": "comp-web-portal::SPOOFING::auth impersonation jwt theft token user xss",
+    "name": "JWT token theft via XSS enables impersonation of authenticated users",
+    "category": "SPOOFING",
+    "severity": "CRITICAL",
+    "componentId": "comp-web-portal",
+    "mitigationCount": 6
+  },
+  {
+    "key": "comp-web-portal::SPOOFING::client insecure replay session side storage token",
+    "name": "Session token replay via insecure client-side storage",
+    "category": "SPOOFING",
+    "severity": "CRITICAL",
+    "componentId": "comp-web-portal",
+    "mitigationCount": 6
+  },
+  {
+    "key": "compound::ELEVATION_OF_PRIVILEGE::account checkout fraudulent full jwt orders takeover tampering theft",
+    "name": "JWT Theft + Checkout Tampering Enables Full Account Takeover and Fraudulent Orders",
+    "category": "ELEVATION_OF_PRIVILEGE",
+    "severity": "CRITICAL",
+    "componentId": "compound",
+    "mitigationCount": 1
+  },
+  {
+    "key": "compound::REPUDIATION::abuse auth charge checkout hijacking missing repudiation reversal session",
+    "name": "Session Hijacking + Unauthenticated Checkout Enables Repudiation and Charge Reversal Abuse",
+    "category": "REPUDIATION",
+    "severity": "HIGH",
+    "componentId": "compound",
+    "mitigationCount": 1
+  },
+  {
+    "key": "compound::SPOOFING::api authz chain charge exfiltration forgery key missing payment processing",
+    "name": "API Key Exfiltration → Charge Forgery Chain Enables Unauthorized Payment Processing",
+    "category": "SPOOFING",
+    "severity": "CRITICAL",
+    "componentId": "compound",
+    "mitigationCount": 1
+  }
+]

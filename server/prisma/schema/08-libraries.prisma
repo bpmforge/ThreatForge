@@ -1,0 +1,190 @@
+// =============================================================================
+// Library Models (Threat, Mitigation, Component Templates)
+// =============================================================================
+
+model ThreatLibrary {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  isDefault   Boolean @default(false)
+  isPublic    Boolean @default(false)
+
+  organization   Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String?
+  templates      ThreatTemplate[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("threat_libraries")
+}
+
+model ThreatTemplate {
+  id                       String         @id @default(cuid())
+  name                     String
+  description              String
+  strideCategory           StrideCategory
+  defaultSeverity          Severity       @default(MEDIUM)
+  applicableComponentTypes String         @default("[]")
+  suggestedMitigations     String         @default("[]")
+  complianceControls       String         @default("{}")
+  cweIds                   String         @default("[]")
+  owaspIds                 String         @default("[]")
+
+  library   ThreatLibrary @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  libraryId String
+  threats   Threat[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([libraryId])
+  @@map("threat_templates")
+}
+
+model MitigationLibrary {
+  id             String        @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  isDefault      Boolean       @default(false)
+  isPublic       Boolean       @default(false)
+
+  templates MitigationTemplate[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  @@index([organizationId])
+  @@map("mitigation_libraries")
+}
+
+model MitigationTemplate {
+  id                    String             @id @default(cuid())
+  libraryId             String
+  library               MitigationLibrary  @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  name                  String
+  description           String
+  strategy              MitigationStrategy
+  effort                EffortLevel        @default(MEDIUM)
+  effectiveness         EffectivenessLevel @default(MEDIUM)
+  applicableThreatTypes String             @default("[]")
+  complianceControls    String             @default("{}")
+  implementationSteps   String             @default("[]")
+  prerequisites         String             @default("[]")
+  relatedTemplateIds    String             @default("[]")
+  tags                  String             @default("[]")
+  usageCount            Int                @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  @@index([libraryId])
+  @@map("mitigation_templates")
+}
+
+enum EffortLevel {
+  TRIVIAL
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}
+
+enum EffectivenessLevel {
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}
+
+model ComponentTemplateLibrary {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  isDefault   Boolean @default(false)
+  isPublic    Boolean @default(false)
+
+  organization   Organization?       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String?
+  templates      ComponentTemplate[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("component_template_libraries")
+}
+
+model ComponentTemplate {
+  id                String        @id @default(cuid())
+  name              String
+  description       String?
+  componentType     ComponentType
+  icon              String?
+  color             String?
+  defaultProperties String        @default("{}")
+  suggestedThreats  String        @default("[]")
+  tags              String        @default("[]")
+
+  library   ComponentTemplateLibrary @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  libraryId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([libraryId])
+  @@map("component_templates")
+}
+
+model ModelTemplate {
+  id             String        @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  category       String?
+  tags           String        @default("[]")
+  thumbnail      String?
+
+  canvasState String
+  components  String @default("[]")
+  boundaries  String @default("[]")
+  threats     String @default("[]")
+
+  isPublic   Boolean @default(false)
+  usageCount Int     @default(0)
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([category])
+  @@index([isPublic])
+  @@map("model_templates")
+}
+
+model CustomThreatCategory {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  color          String?
+  icon           String?
+  sortOrder      Int          @default(0)
+  isActive       Boolean      @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("custom_threat_categories")
+}

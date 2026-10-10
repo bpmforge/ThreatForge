@@ -1,0 +1,102 @@
+// =============================================================================
+// Requirements — Customer-defined requirements linked to mitigations
+//
+// Customers can import requirements from:
+//   - Their own SRS/SAD/policy documents (DOCUMENT)
+//   - CSV bulk upload (CSV)
+//   - Compliance frameworks (FRAMEWORK)
+//   - Manual entry in the UI (MANUAL)
+//
+// Each Requirement is scoped to a ThreatModel so teams can track which
+// threats/mitigations address each requirement.
+// =============================================================================
+
+enum RequirementSource {
+  MANUAL       // Added directly via UI
+  DOCUMENT     // Extracted from an imported SRS/SAD/policy document
+  CSV          // Bulk-imported via CSV upload
+  FRAMEWORK    // Imported from a compliance framework (HIPAA, PCI-DSS, etc.)
+  AI_SUGGESTED // LLM proposed this requirement to close a gap (awaits user review)
+}
+
+/// Review status for AI_SUGGESTED requirements (parallels Threat.reviewStatus).
+/// MANUAL / DOCUMENT / CSV / FRAMEWORK sources default to ACCEPTED (no review needed).
+enum RequirementReviewStatus {
+  PENDING   // AI suggestion awaiting human review
+  ACCEPTED  // Accepted into the requirements set
+  REJECTED  // Rejected — kept as history but excluded from traceability
+  MODIFIED  // Accepted with edits
+}
+
+model Requirement {
+  id String @id @default(cuid())
+
+  /// Short identifier: "FR-12", "SEC-3", "HIPAA-164.312(a)(1)", "REQ-001"
+  reqId String
+
+  /// Full requirement text
+  text String
+
+  /// Logical category: "security" | "functional" | "compliance" | "privacy" | "performance"
+  category String?
+
+  /// Source document label: "SRS", "SAD", "HIPAA", "PCI-DSS", user-supplied
+  docId String?
+
+  /// How this requirement entered the system
+  source RequirementSource @default(MANUAL)
+
+  /// Review lifecycle — only meaningful for AI_SUGGESTED (others default ACCEPTED)
+  reviewStatus  RequirementReviewStatus @default(ACCEPTED)
+  reviewedAt    DateTime?
+  reviewedById  String?
+  reviewNotes   String?
+
+  /// For FRAMEWORK source: the framework key (e.g. "HIPAA", "PCI_DSS")
+  frameworkId String?
+
+  /// Source document (when imported from a document)
+  document   Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  documentId String?
+
+  threatModel   ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+
+  /// Groups versions of the same logical requirement across re-extractions. First version: familyId == id.
+  requirementFamilyId String?
+
+  /// Monotonic per-family version. v1, v2, v3 …
+  version Int @default(1)
+
+  /// Set when superseded by a newer version (e.g. re-extraction from a newer Document version).
+  supersededAt DateTime?
+
+  mitigations MitigationRequirement[]
+  citations   Citation[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+
+  @@unique([threatModelId, reqId, version])
+  @@index([threatModelId])
+  @@index([threatModelId, supersededAt])
+  @@index([requirementFamilyId])
+  @@index([source])
+  @@map("requirements")
+}
+
+/// Junction table: many-to-many between Mitigation and Requirement
+model MitigationRequirement {
+  id            String      @id @default(cuid())
+  mitigation    Mitigation  @relation(fields: [mitigationId], references: [id], onDelete: Cascade)
+  mitigationId  String
+  requirement   Requirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  requirementId String
+  createdAt     DateTime    @default(now())
+
+  @@unique([mitigationId, requirementId])
+  @@index([mitigationId])
+  @@index([requirementId])
+  @@map("mitigation_requirements")
+}

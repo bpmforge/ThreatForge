@@ -1,0 +1,51 @@
+// =============================================================================
+// Membership Models
+// =============================================================================
+
+model Membership {
+  id     String       @id @default(cuid())
+  role   MemberRole   @default(VIEWER)
+  status MemberStatus @default(ACTIVE)
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  customRole   CustomRole? @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+  customRoleId String?
+
+  // Invitation fields
+  invitedBy           User?     @relation("InvitationSender", fields: [invitedById], references: [id])
+  invitedById         String?
+  invitedAt           DateTime?
+  invitationToken     String?   @unique
+  invitationExpiresAt DateTime?
+  acceptedAt          DateTime?
+
+  // Suspension fields
+  suspendedBy      String?
+  suspendedAt      DateTime?
+  suspensionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, organizationId])
+  @@index([status])
+  @@index([invitationToken])
+  @@map("memberships")
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum MemberStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}

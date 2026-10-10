@@ -1,0 +1,129 @@
+// =============================================================================
+// Citations & Document Sections — claim-citation verifier
+//
+// Every LLM-generated threat or mitigation can carry one or more citations
+// pointing back to a verifiable source: an imported document section, a
+// reference-data entry (CWE / OWASP / compliance), or a canvas component.
+// The verifier service writes a Citation row per claim with the result of a
+// cross-check against the cited source.
+//
+// Invariants enforced in citation-verifier.ts (Prisma cannot express XOR):
+//   - A Citation is owned by exactly ONE claim — threatId XOR mitigationId.
+//
+// Rollup semantics for verificationStatus on Threat / Mitigation:
+//   - VERIFIED   — every non-NONE citation on the claim is VERIFIED
+//   - UNVERIFIED — any citation is UNVERIFIED or PHANTOM
+//   - PENDING    — no citations yet, or any citation still PENDING and none failed
+//   - EXEMPT     — claim originates on an exempt surface (e.g. refinement question)
+// =============================================================================
+
+enum CitationKind {
+  DERIVED // Direct claim from source — must verify, must match
+  INFERRED // Extrapolation from source — must verify source exists, semantic match optional
+  NOT_FOUND // LLM explicitly flagged absent — no verification, surfaces as a known gap
+  NONE // No citation provided — auto-marked unverified
+}
+
+enum CitationType {
+  DOCUMENT // Cited section / page of an imported Document
+  REFERENCE // CWE / OWASP / compliance clause
+  COMPONENT // Canvas component or boundary
+  REQUIREMENT // Imported requirement (SRS/SAD reqId)
+  NONE
+}
+
+enum VerificationStatus {
+  PENDING // Queued for verification or not yet processed
+  VERIFIED // Cross-check passed
+  UNVERIFIED // Cross-check ran but the source did not support the claim
+  PHANTOM // Citation resolves to nothing (doc / section / id not found)
+  EXEMPT // Surface is exempt from verification
+}
+
+model Citation {
+  id String @id @default(cuid())
+
+  // Classification
+  kind         CitationKind
+  citationType CitationType
+
+  // DOCUMENT citation fields (set when citationType = DOCUMENT)
+  documentId String?
+  document   Document?        @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  sectionId  String?
+  section    DocumentSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  pageNumber Int?
+  excerpt    String? // Up to ~500 chars of the supporting text
+
+  // REFERENCE citation fields (set when citationType = REFERENCE)
+  referenceKind String? // "CWE" | "OWASP" | "NIST_800_53" | "HIPAA" | etc.
+  referenceId   String? // "CWE-89" | "A03:2021" | "SC-7" | etc.
+
+  // COMPONENT citation fields (set when citationType = COMPONENT)
+  componentNodeId String? // React Flow node id
+
+  // REQUIREMENT citation fields (set when citationType = REQUIREMENT)
+  requirementId String? // FK into Requirement
+  requirement   Requirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+
+  // Verification result
+  verificationStatus VerificationStatus @default(PENDING)
+  verifiedAt         DateTime?
+  verifierConfidence Float? // 0.0 - 1.0
+  verifierRationale  String?
+  verifierProvider   String? // Which AI provider ran the cross-check
+
+  // Human override (set when a reviewer accepts/rejects a PHANTOM or UNVERIFIED citation)
+  overriddenById    String?
+  overrideRationale String?
+  overriddenAt      DateTime?
+
+  // Ownership — exactly one of threatId / mitigationId set (XOR enforced in service)
+  threatId     String?
+  threat       Threat?     @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  mitigationId String?
+  mitigation   Mitigation? @relation(fields: [mitigationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([threatId])
+  @@index([mitigationId])
+  @@index([documentId, sectionId])
+  @@index([verificationStatus])
+  @@map("citations")
+}
+
+model DocumentSection {
+  id String @id @default(cuid())
+
+  /// Parent document
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  /// Stable anchor — used in citation tags, e.g. "3.2", "appendix-a", "system-overview"
+  anchor String
+
+  /// Human-readable heading text as detected
+  header String
+
+  /// Page number if known (PDF), null otherwise
+  pageNumber Int?
+
+  /// Char offsets into Document.content
+  startOffset Int
+  endOffset   Int
+
+  /// Embedding vector stored as packed Float32 bytes (4 bytes per dimension).
+  /// Null until the embedding job runs after document import.
+  /// On SQLite (dev) this is always null — fail-open: semantic pre-check skipped.
+  embedding Bytes?
+
+  citations Citation[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([documentId, anchor])
+  @@index([documentId])
+  @@map("document_sections")
+}

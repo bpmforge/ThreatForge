@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "threatforge"
+version = "1.0.0"
+description = "Official Python SDK for the ThreatForge API"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+keywords = ["threatforge", "threat-modeling", "security"]
+dependencies = []  # stdlib only — zero runtime deps
+
+[project.urls]
+Homepage = "https://threatforge.bpmforge.com"
+Documentation = "https://threatforge.bpmforge.com/docs"
+Repository = "https://github.com/bpmforge/ThreatForge"

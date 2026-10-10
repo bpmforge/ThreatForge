@@ -1,0 +1,75 @@
+// =============================================================================
+// AI Job Queue
+//
+// Tracks async AI operations (threat analysis, extraction, attack trees, etc.)
+// Jobs are submitted via API, processed by BullMQ workers, results stored here.
+// =============================================================================
+
+enum AiJobType {
+  SUGGEST_THREATS
+  SUGGEST_MITIGATIONS
+  EXTRACT_DOCUMENT
+  EXTRACT_DIAGRAM
+  ATTACK_TREE
+  CALCULATE_SEVERITY
+  SEQUENCE_DIAGRAM
+  REFINEMENT_QUESTIONS
+  EXPERT_ANALYSIS
+  VERIFY_CITATIONS
+  REFRESH_MITIGATIONS
+  ATTACK_CHAIN_ANALYSIS
+  ARCHITECTURAL_MITIGATIONS
+}
+
+enum AiJobStatus {
+  QUEUED
+  PROCESSING
+  PAUSED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model AiJob {
+  id String @id @default(cuid())
+
+  user   User   @relation("AiJobUser", fields: [userId], references: [id])
+  userId String
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+
+  type   AiJobType
+  status AiJobStatus @default(QUEUED)
+
+  // Optional associations
+  threatModel   ThreatModel? @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String?
+  threatId      String?
+
+  // Job data
+  input           String // JSON-encoded job-specific input
+  result          String? // JSON-encoded result on completion
+  error           String? // Error message on failure
+  progress        Int     @default(0) // 0-100 progress percent
+  progressMessage String? // Human-readable current step description
+  checkpoint      String? // JSON: { completedComponentIds: string[], threats: MicroThreat[] } — for resume
+
+  // BullMQ correlation
+  bullJobId String? @unique
+
+  // Timing
+  queuedAt    DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  // Notification tracking
+  notificationSent Boolean @default(false)
+
+  @@index([userId, status])
+  @@index([userId, queuedAt(sort: Desc)])
+  @@index([threatModelId])
+  @@index([threatModelId, status])
+  @@index([status])
+  @@map("ai_jobs")
+}

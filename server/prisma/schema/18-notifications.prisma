@@ -1,0 +1,23 @@
+// =============================================================================
+// Notification Models
+// =============================================================================
+
+model Notification {
+  id       String    @id @default(cuid())
+  userId   String
+  type     String
+  category String
+  priority String    @default("NORMAL")
+  title    String
+  message  String
+  link     String?
+  metadata String?
+  isRead   Boolean   @default(false)
+  readAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}

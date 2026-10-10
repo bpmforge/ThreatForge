@@ -1,0 +1,20 @@
+// =============================================================================
+// SCIM 2.0 Provisioning Models
+// =============================================================================
+
+model ScimToken {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  tokenHash   String    @unique // SHA-256 hash of the bearer token
+  tokenPrefix String    // first 12 chars for display/identification
+
+  description String?
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+
+  @@index([organizationId])
+  @@map("scim_tokens")
+}

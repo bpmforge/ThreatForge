@@ -1,0 +1,30 @@
+rules:
+  - id: tf-membership-relation-missing-status
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >
+      relation filter on the caller's membership (`memberships: { some/where:
+      { userId } }`) without a `status` filter. A SUSPENDED member still has a
+      Membership row, so this keeps granting access after suspension. Add
+      `status: "ACTIVE"` next to `userId`. If every status is wanted on
+      purpose, add `// nosemgrep: tf-membership-relation-missing-status` with
+      the reason.
+    paths:
+      include:
+        - "server/src/**"
+        - "tools/security/rules/fixtures/**"
+      exclude:
+        - "**/__tests__/**"
+        - "*.test.ts"
+    patterns:
+      - pattern-either:
+          - pattern: "{..., memberships: {..., some: {..., userId: $U, ...}, ...}, ...}"
+          - pattern: "{..., memberships: {..., where: {..., userId: $U, ...}, ...}, ...}"
+      - pattern-not: "{..., memberships: {..., some: {..., status: $S, ...}, ...}, ...}"
+      - pattern-not: "{..., memberships: {..., where: {..., status: $S, ...}, ...}, ...}"
+    metadata:
+      cwe: [285]
+      confidence: medium
+      # Companion to tf-membership-query-missing-status, which only sees
+      # direct prisma.membership.find* calls. Same bug class through a
+      # relation filter; the tree was cleared to 0 hits when this was added.

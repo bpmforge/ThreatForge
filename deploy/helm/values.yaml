@@ -1,0 +1,102 @@
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+image:
+  server:
+    repository: bpmforge/threatforge-server
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: bpmforge/threatforge-frontend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+
+server:
+  replicaCount: 2
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+frontend:
+  replicaCount: 2
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+ingress:
+  enabled: true
+  className: nginx
+  host: threatforge.example.com
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+  tls:
+    enabled: true
+
+postgresql:
+  enabled: true
+  auth:
+    database: threatforge
+    existingSecret: ""
+  primary:
+    persistence:
+      size: 20Gi
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  architecture: standalone
+
+config:
+  nodeEnv: production
+  port: "4000"
+  corsOrigin: ""
+
+# When set, all pods will reference this existing Secret instead of the chart-managed one.
+# The Secret must contain: AUTH_SECRET, JWT_SECRET, ENCRYPTION_KEY, DATABASE_URL
+secrets:
+  existingSecret: ""
+  authSecret: ""
+  jwtSecret: ""
+  encryptionKey: ""
+  databaseUrl: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+persistence:
+  enabled: false

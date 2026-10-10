@@ -1,0 +1,16 @@
+{
+  "_README": [
+    "Ratchet for the post-guard duplicate rate (duplicate-rate-ratchet.test.ts).",
+    "Duplicate rate = surplus members of merge- or review-band clusters / threats,",
+    "scored by services/ai/dedup/duplicate-detector.ts. 'replay' is the committed",
+    "llm-journal.json replayed through the pipeline (full features, detector-only",
+    "guard: the guard's LLM call is not in the journal). 'seedsMean' is the mean over",
+    "seeds/*.json scored on names/category/component only.",
+    "The test fails if a measured rate goes ABOVE its ceiling, and also if a ceiling",
+    "sits more than SLACK above the measured rate: when a change lowers the rate,",
+    "lower the ceiling to the new value in the same commit. Ceilings only go down.",
+    "Run `npm run eval:dupes` for the per-seed table."
+  ],
+  "replay": 0.1008,
+  "seedsMean": 0.0541
+}

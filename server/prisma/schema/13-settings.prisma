@@ -1,0 +1,72 @@
+// =============================================================================
+// System Settings Model
+// =============================================================================
+
+model SystemSettings {
+  id String @id @default("default")
+
+  // Setup status
+  setupComplete      Boolean   @default(false)
+  setupCompletedAt   DateTime?
+  setupCompletedById String?
+
+  // Authentication settings
+  allowSignups             Boolean    @default(true)
+  requireEmailVerification Boolean    @default(true)
+  defaultUserRole          MemberRole @default(VIEWER)
+  sessionTimeoutHours      Int        @default(24)
+  maxLoginAttempts         Int        @default(5)
+  lockoutDurationMinutes   Int        @default(15)
+
+  // Password policy
+  passwordMinLength           Int     @default(12)
+  passwordRequireUppercase    Boolean @default(true)
+  passwordRequireLowercase    Boolean @default(true)
+  passwordRequireNumbers      Boolean @default(true)
+  passwordRequireSpecialChars Boolean @default(false)
+
+  // MFA settings
+  mfaRequired Boolean @default(false)
+
+  // Organization settings
+  maxProjectsPerOrg Int @default(100)
+
+  // AI settings
+  enableAI   Boolean @default(true)
+  aiProvider String  @default("anthropic")
+
+  // Private-network AI endpoints (self-hosted LLMs). An org's AI base URL may
+  // point at a loopback/private host only when it matches this super-admin
+  // list (or the switch below is on). AI_PRIVATE_HOST_ALLOWLIST adds to it.
+  aiPrivateHostAllowlist String? // JSON array of hostnames, IPs and CIDRs
+  aiAllowAllPrivateHosts Boolean @default(false)
+
+  // NVD (nvd.nist.gov) API key for CVE lookups, encrypted. Each install
+  // registers its own; NVD_API_KEY in the environment is the fallback.
+  nvdApiKey String?
+
+  // OAuth Configuration
+  oauthProviders String?
+
+  // SAML SSO settings
+  samlEnabled    Boolean @default(false)
+  samlJacksonUrl String?
+  samlProductId  String  @default("flow-threat-model")
+
+  // IP Allowlisting
+  ipAllowlistEnabled Boolean @default(false)
+  ipAllowlist        String?
+
+  // Audit settings
+  auditRetentionDays Int @default(90)
+
+  // Email Provider
+  emailProvider String  @default("none")
+  emailFrom     String?
+  emailConfig   String?
+
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+
+  @@map("system_settings")
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@threatforge/cli",
+  "version": "0.1.0",
+  "description": "ThreatForge CLI: validate threat-model YAML in CI (ftm validate)",
+  "type": "module",
+  "bin": { "ftm": "dist/cli.js" },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build": "tsup src/cli.ts src/index.ts --format esm --dts",
+    "test": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": ["threatforge", "threat-modeling", "security", "cli"],
+  "license": "MIT",
+  "dependencies": { "yaml": "^2.8.0" },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  }
+}

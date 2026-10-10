@@ -1,0 +1,116 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 6 * * 1' # Weekly Monday 6am
+
+jobs:
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # BLOCKING: a critical advisory in a PRODUCTION dependency fails the job.
+      # Scoped to --omit=dev (what actually ships and runs) and to `critical`
+      # so a real shipped critical can't merge, while the ~14 pre-existing highs
+      # are worked down separately without wedging every PR. Two criticals in
+      # the auth path slipped in exactly because this signal was discarded.
+      - name: Audit frontend production dependencies (blocking — critical)
+        run: npm audit --omit=dev --audit-level=critical
+        working-directory: frontend
+
+      - name: Audit server production dependencies (blocking — critical)
+        run: npm audit --omit=dev --audit-level=critical
+        working-directory: server
+
+      # INFORMATIONAL: surface high+ (incl. dev deps) without blocking, so the
+      # backlog stays visible in the log while it's cleared.
+      - name: Audit frontend dependencies (informational — high+)
+        run: npm audit --audit-level=high
+        working-directory: frontend
+        continue-on-error: true
+
+      - name: Audit server dependencies (informational — high+)
+        run: npm audit --audit-level=high
+        working-directory: server
+        continue-on-error: true
+
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  trivy-scan:
+    name: Trivy Container Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build frontend image
+        run: docker build -t flowthreat/frontend:scan ./frontend
+
+      - name: Scan frontend image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'flowthreat/frontend:scan'
+          format: 'sarif'
+          output: 'frontend-trivy.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Build server image
+        run: docker build -t flowthreat/server:scan ./server
+
+      - name: Scan server image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'flowthreat/server:scan'
+          format: 'sarif'
+          output: 'server-trivy.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      # Code-scanning upload needs GitHub Advanced Security on a private repo;
+      # a refused upload must not turn a clean scan red. The scan steps above
+      # are the gate; this step is reporting.
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: '.'
+        if: always()
+        continue-on-error: true
+
+  secrets-scan:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect secrets with Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,65 @@
+// =============================================================================
+// Attack Chains
+//
+// Stores AI-generated multi-hop attack paths through a threat model diagram.
+// Each chain has ordered hops that walk the component graph from an entry
+// point to a high-value target asset.  Status tracks the human review loop
+// (AI_SUGGESTED → ACCEPTED / REJECTED / MODIFIED).
+// =============================================================================
+
+enum ChainStatus {
+  AI_SUGGESTED
+  ACCEPTED
+  REJECTED
+  MODIFIED
+
+  @@map("chain_status")
+}
+
+model AttackChain {
+  id               String      @id @default(cuid())
+  threatModelId    String
+  threatModel      ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  name             String
+  description      String
+  severity         Severity
+  residualSeverity Severity?
+  likelihood       Float?
+  status           ChainStatus @default(AI_SUGGESTED)
+  sessionId        String
+  entryPointId     String
+  entryPointName   String
+  targetAssetId    String
+  targetAssetName  String
+  hops             AttackChainHop[]
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([threatModelId])
+  @@map("attack_chains")
+}
+
+model AttackChainHop {
+  id            String      @id @default(cuid())
+  chainId       String
+  chain         AttackChain @relation(fields: [chainId], references: [id], onDelete: Cascade)
+  position      Int
+  componentId   String
+  componentName String
+  connectionId  String?
+  threatId      String?
+  description   String
+  technique     String?
+  isMitigated   Boolean     @default(false)
+  mitigationIds String      @default("[]")
+  // Capability tokens (ARCHITECTURE §2.5). Stored as JSON-encoded string arrays
+  // because the datasource is SQLite (dev/desktop), which has no native String[].
+  // This mirrors the existing `mitigationIds` precedent and every other array-ish
+  // field in the schema (e.g. 17-scanners cweIds/cveIds, 22-prompts variables).
+  // The app boundary validates these as z.array(z.string()) and (de)serializes JSON.
+  preconditions String     @default("[]")
+  yields        String     @default("[]")
+
+  @@index([chainId])
+  @@map("attack_chain_hops")
+}

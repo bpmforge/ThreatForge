@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Pre-push gate. Skip once with: GATE_SKIP=1 git push  (say why in the commit).
+if [[ -n "${GATE_SKIP:-}" ]]; then echo "gate: skipped (GATE_SKIP set)"; exit 0; fi
+
+# A push that only deletes remote refs carries no code to gate. git feeds
+# "<local ref> <local sha> <remote ref> <remote sha>" per ref on stdin; a
+# deletion has an all-zero local sha.
+zero=0000000000000000000000000000000000000000
+only_deletes=1
+while read -r _lref lsha _rref _rsha; do
+  [[ "$lsha" != "$zero" ]] && only_deletes=0
+done
+if [[ $only_deletes -eq 1 ]]; then echo "gate: nothing to gate (ref deletion only)"; exit 0; fi
+
+exec "$(git rev-parse --show-toplevel)/scripts/gate.sh"

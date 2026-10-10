@@ -1,0 +1,267 @@
+// =============================================================================
+// AI Prompt Configuration Models
+// =============================================================================
+
+/// Configurable AI prompt templates
+model PromptTemplate {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  category           PromptCategory
+  systemPrompt       String
+  userPromptTemplate String
+  variables          String         @default("[]")
+
+  outputFormat PromptOutputFormat @default(JSON)
+  outputSchema String?
+
+  temperature    Float   @default(0.3)
+  maxTokens      Int     @default(2000)
+  requiresVision Boolean @default(false)
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String?
+
+  tags      String  @default("[]")
+  version   Int     @default(1)
+  isBuiltIn Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documentTypes DocumentTypeConfig[] @relation("DocumentTypePrompt")
+
+  @@index([organizationId])
+  @@index([category])
+  @@index([isBuiltIn])
+  @@map("prompt_templates")
+}
+
+enum PromptCategory {
+  CLASSIFICATION
+  EXTRACTION
+  ANALYSIS
+  TRANSFORMATION
+  VALIDATION
+  VISION
+  THREAT_IDENTIFICATION
+  MITIGATION
+  CHAT
+}
+
+enum PromptOutputFormat {
+  JSON
+  TEXT
+  MARKDOWN
+}
+
+/// Document type configurations for automatic detection and prompt selection
+model DocumentTypeConfig {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  icon        String?
+
+  detectionRules     String @default("[]")
+  detectionThreshold Int    @default(60)
+  priority           Int    @default(0)
+
+  promptTemplate   PromptTemplate @relation("DocumentTypePrompt", fields: [promptTemplateId], references: [id])
+  promptTemplateId String
+
+  supportedFormats String @default("[\"pdf\",\"docx\",\"md\",\"txt\"]")
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String?
+
+  isBuiltIn Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([promptTemplateId])
+  @@map("document_type_configs")
+}
+
+/// Execution log for prompt executions
+model PromptExecutionLog {
+  id String @id @default(cuid())
+
+  promptTemplateId   String
+  promptTemplateName String
+
+  documentTypeId   String?
+  documentTypeName String?
+
+  organizationId String?
+  userId         String
+
+  inputDocument  String?
+  inputVariables String?
+  outputResult   String?
+  outputParsed   String?
+
+  status ExecutionStatus @default(PENDING)
+
+  tokensUsed Int?
+  durationMs Int?
+  model      String?
+  provider   String?
+
+  errorMessage String?
+  errorCode    String?
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([promptTemplateId])
+  @@index([status])
+  @@map("prompt_execution_logs")
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+/// Pipeline definition for multi-stage document processing
+model PromptPipeline {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  isSequential Boolean @default(true)
+  stopOnError  Boolean @default(true)
+  timeout      Int     @default(300000)
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String?
+
+  tags      String  @default("[]")
+  isBuiltIn Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  stages     PipelineStage[]
+  executions PipelineExecution[]
+
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([isBuiltIn])
+  @@map("prompt_pipelines")
+}
+
+/// Stage within a pipeline
+model PipelineStage {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  order     Int    @default(0)
+  dependsOn String @default("[]")
+
+  promptTemplateId String
+  inputMapping     String @default("{}")
+  outputFields     String @default("[]")
+
+  optional   Boolean @default(false)
+  retryCount Int     @default(0)
+  timeoutMs  Int?
+  condition  String?
+
+  pipeline        PromptPipeline           @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  pipelineId      String
+  stageExecutions PipelineStageExecution[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pipelineId, order])
+  @@index([pipelineId])
+  @@index([promptTemplateId])
+  @@map("pipeline_stages")
+}
+
+/// Execution of an entire pipeline
+model PipelineExecution {
+  id String @id @default(cuid())
+
+  pipeline   PromptPipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  pipelineId String
+
+  organizationId String?
+  userId         String
+  threatModelId  String?
+
+  inputDocument   String?
+  inputDocumentId String?
+  inputMetadata   String  @default("{}")
+
+  status         ExecutionStatus @default(PENDING)
+  currentStageId String?
+  outputs        String          @default("{}")
+  finalResult    String?
+
+  totalDurationMs Int?
+  totalTokensUsed Int?
+
+  errorMessage String?
+  errorStageId String?
+
+  stageExecutions PipelineStageExecution[]
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([pipelineId])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([status])
+  @@map("pipeline_executions")
+}
+
+/// Execution of a single stage within a pipeline
+model PipelineStageExecution {
+  id String @id @default(cuid())
+
+  pipelineExecution   PipelineExecution @relation(fields: [pipelineExecutionId], references: [id], onDelete: Cascade)
+  pipelineExecutionId String
+  stage               PipelineStage     @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  stageId             String
+
+  order  Int
+  status ExecutionStatus @default(PENDING)
+
+  input        String?
+  output       String?
+  outputParsed String?
+
+  durationMs    Int?
+  tokensUsed    Int?
+  retryAttempts Int  @default(0)
+
+  errorMessage String?
+  errorCode    String?
+
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  @@unique([pipelineExecutionId, stageId])
+  @@index([pipelineExecutionId])
+  @@index([stageId])
+  @@index([status])
+  @@map("pipeline_stage_executions")
+}

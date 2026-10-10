@@ -1,0 +1,154 @@
+// =============================================================================
+// Security Scanner Integration Models
+// =============================================================================
+
+model ScanRun {
+  id            String      @id @default(cuid())
+  scannerType   ScannerType
+  projectId     String
+  threatModelId String?
+
+  startedAt   DateTime      @default(now())
+  completedAt DateTime?
+  status      ScanRunStatus @default(RUNNING)
+
+  totalFindings Int     @default(0)
+  criticalCount Int     @default(0)
+  highCount     Int     @default(0)
+  mediumCount   Int     @default(0)
+  lowCount      Int     @default(0)
+  infoCount     Int     @default(0)
+  error         String?
+
+  findings ScannerFinding[]
+
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@index([scannerType])
+  @@index([status])
+  @@map("scan_runs")
+}
+
+model ScannerFinding {
+  id          String      @id @default(cuid())
+  externalId  String
+  scannerType ScannerType
+
+  title       String
+  description String
+  severity    FindingSeverity
+  category    FindingCategory
+
+  cweIds        String  @default("[]")
+  cveIds        String  @default("[]")
+  owaspCategory String?
+
+  filePath    String?
+  lineNumber  Int?
+  codeSnippet String?
+
+  componentName    String?
+  componentVersion String?
+  fixAvailable     Boolean?
+  fixVersion       String?
+
+  remediation String?
+  externalUrl String?
+
+  firstSeen DateTime @default(now())
+  lastSeen  DateTime @default(now())
+
+  status        FindingStatus @default(OPEN)
+  dismissedById String?
+  dismissedAt   DateTime?
+  dismissReason String?
+
+  rawData String?
+
+  scanRun       ScanRun? @relation(fields: [scanRunId], references: [id], onDelete: SetNull)
+  scanRunId     String?
+  projectId     String
+  threatModelId String?
+
+  componentMappings FindingComponentMap[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Per project: the same scanner issue id appears in many tenants' projects
+  @@unique([projectId, scannerType, externalId])
+  @@index([projectId])
+  @@index([threatModelId])
+  @@index([severity])
+  @@index([status])
+  @@map("scanner_findings")
+}
+
+model FindingComponentMap {
+  id            String            @id @default(cuid())
+  findingId     String
+  finding       ScannerFinding    @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  componentId   String
+  confidence    MappingConfidence
+  mappingReason String
+
+  verifiedById String?
+  verifiedAt   DateTime?
+  isCorrect    Boolean?
+
+  createdAt DateTime @default(now())
+
+  @@unique([findingId, componentId])
+  @@index([findingId])
+  @@index([componentId])
+  @@map("finding_component_maps")
+}
+
+enum ScannerType {
+  SNYK
+  SONARQUBE
+  CHECKMARX
+  VERACODE
+  OWASP_ZAP
+  BURP
+  CUSTOM
+}
+
+enum ScanRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum FindingSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum FindingCategory {
+  VULNERABILITY
+  CODE_SMELL
+  BUG
+  SECURITY_HOTSPOT
+  LICENSE
+  DEPENDENCY
+  CONFIGURATION
+}
+
+enum FindingStatus {
+  OPEN
+  IN_PROGRESS
+  FIXED
+  DISMISSED
+  FALSE_POSITIVE
+}
+
+enum MappingConfidence {
+  HIGH
+  MEDIUM
+  LOW
+}

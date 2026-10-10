@@ -1,0 +1,288 @@
+// =============================================================================
+// Organization Models
+// =============================================================================
+
+model Organization {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  description String?
+  logoUrl     String?
+
+  type       OrgType @default(TEAM)
+  isPersonal Boolean @default(false)
+  owner      User?   @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  ownerId    String?
+
+  // Guest access settings
+  allowGuestAccess Boolean   @default(true)
+  guestDefaultRole GuestRole @default(VIEWER)
+  allowGuestExport Boolean   @default(false)
+
+  // Quotas
+  maxMembers          Int?
+  maxProjects         Int?
+  maxModelsPerProject Int?
+  /// Monthly AI spend cap in USD; null = unlimited. Enforced before enqueueing AI jobs (AI-SPEND).
+  monthlySpendCapUsd  Float?
+
+  // Settings
+  settings          String? @default("{}")
+  aiSettings        String? @default("{}")
+  threatMethodology String  @default("STRIDE")
+  /// AI provider routing policy: allow-cloud | local-only | prefer-local
+  aiRoutingPolicy   String  @default("allow-cloud")
+
+  // SSO Configuration
+  ssoEnabled  Boolean      @default(false)
+  ssoProvider SSOProvider?
+  ssoConfig   String?
+  ssoDomain   String?
+  ssoEnforced Boolean      @default(false)
+
+  // CI/CD Integration
+  ciWebhookSecret String?
+
+  // Soft delete
+  deletedAt DateTime?
+
+  // Relations
+  memberships                Membership[]
+  projects                   Project[]
+  threatLibraries            ThreatLibrary[]
+  componentTemplateLibraries ComponentTemplateLibrary[]
+  ciApiKeys                  CIApiKey[]
+  modelAccess                ModelAccess[]
+  aiProviders                AIProvider[]
+  webhooks                   Webhook[]
+  customRoles                CustomRole[]
+
+  // Feature Expansion Relations
+  customThreatCategories CustomThreatCategory[]
+  mitigationLibraries    MitigationLibrary[]
+  modelTemplates         ModelTemplate[]
+  riskFrameworks         RiskFramework[]
+  integrations           Integration[]
+  librarySubscriptions   LibrarySubscription[]
+  libraryUsageEvents     LibraryUsageEvent[]
+  publishedLibraries     LibraryPublication[]   @relation("PublishedFrom")
+  receivedLibraries      LibraryPublication[]   @relation("PublishedTo")
+  extensionInstalls      ExtensionInstall[] // unused since 2026-10-07, see 21-extensions.prisma
+
+  // AI Prompt Configuration
+  promptTemplates     PromptTemplate[]
+  documentTypeConfigs DocumentTypeConfig[]
+  promptPipelines     PromptPipeline[]
+  aiJobs              AiJob[]
+
+  scimTokens ScimToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("organizations")
+}
+
+model Webhook {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name         String
+  url          String
+  secret       String?
+  events       String  @default("[]")
+  isActive     Boolean @default(true)
+  maxRetries   Int     @default(3)
+  retryDelayMs Int     @default(1000)
+
+  lastTriggeredAt      DateTime?
+  lastSuccessAt        DateTime?
+  lastFailureAt        DateTime?
+  lastFailureReason    String?
+  consecutiveFailures  Int       @default(0)
+  totalDeliveries      Int       @default(0)
+  successfulDeliveries Int       @default(0)
+  failedDeliveries     Int       @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+
+  deliveries WebhookDelivery[]
+
+  @@index([organizationId])
+  @@index([isActive])
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id        String  @id @default(cuid())
+  webhookId String
+  webhook   Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  event       String
+  requestBody String? // first 10KB of serialized payload
+  statusCode  Int?
+  responseBody String? // first 1KB of response
+
+  status      WebhookDeliveryStatus @default(PENDING)
+  retryCount  Int                   @default(0)
+  nextRetryAt DateTime?
+
+  errorMessage String?
+
+  createdAt   DateTime  @default(now())
+  deliveredAt DateTime?
+
+  @@index([webhookId, createdAt])
+  @@index([status, nextRetryAt])
+  @@map("webhook_deliveries")
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  RETRYING
+  PERMANENTLY_FAILED
+}
+
+model CustomRole {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  color       String?
+  permissions String       @default("[]")
+  isSystem    Boolean      @default(false)
+  memberships Membership[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("custom_roles")
+}
+
+model AIProvider {
+  id        String         @id @default(cuid())
+  name      String
+  type      AIProviderType
+  isDefault Boolean        @default(false)
+  priority  Int            @default(0)
+  isEnabled Boolean        @default(true)
+
+  authType        AIAuthType @default(API_KEY)
+  encryptedApiKey String?
+  baseUrl         String?
+  model           String?
+
+  lastTestedAt   DateTime?
+  lastTestStatus AITestStatus?
+  lastTestError  String?
+
+  totalRequests     Int      @default(0)
+  totalTokens       Int      @default(0)
+  totalInputTokens  Int      @default(0)
+  totalOutputTokens Int      @default(0)
+  usageResetAt      DateTime @default(now())
+  estimatedCost     Float    @default(0)
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+
+  @@unique([organizationId, name])
+  @@index([organizationId, isEnabled, priority])
+  @@map("ai_providers")
+}
+
+// Enums
+enum Permission {
+  ORG_VIEW
+  ORG_EDIT
+  ORG_DELETE
+  ORG_MANAGE_MEMBERS
+  ORG_MANAGE_SSO
+  ORG_MANAGE_WEBHOOKS
+  ORG_VIEW_AUDIT
+  ORG_EXPORT_AUDIT
+  PROJECT_CREATE
+  PROJECT_VIEW
+  PROJECT_EDIT
+  PROJECT_DELETE
+  PROJECT_ARCHIVE
+  MODEL_CREATE
+  MODEL_VIEW
+  MODEL_EDIT
+  MODEL_DELETE
+  MODEL_EXPORT
+  MODEL_SHARE
+  MODEL_VERSION
+  THREAT_CREATE
+  THREAT_EDIT
+  THREAT_DELETE
+  THREAT_ASSIGN
+  MITIGATION_CREATE
+  MITIGATION_EDIT
+  MITIGATION_DELETE
+  MITIGATION_ASSIGN
+  AI_SUGGEST_THREATS
+  AI_CHAT
+  AI_ANALYZE
+  LIBRARY_VIEW
+  LIBRARY_EDIT
+  LIBRARY_CREATE
+  LIBRARY_DELETE
+}
+
+enum OrgType {
+  PERSONAL
+  TEAM
+  ENTERPRISE
+}
+
+enum SSOProvider {
+  SAML
+  OIDC
+  AZURE_AD
+  GOOGLE
+  OKTA
+}
+
+enum AIProviderType {
+  ANTHROPIC
+  OPENAI
+  AZURE_OPENAI
+  GOOGLE
+  OLLAMA
+  LMSTUDIO
+  OPENROUTER
+  CUSTOM
+}
+
+enum AIAuthType {
+  API_KEY
+  OAUTH
+  NONE
+}
+
+enum AITestStatus {
+  SUCCESS
+  FAILED
+  PENDING
+}
+
+enum GuestRole {
+  VIEWER
+  COMMENTER
+  EDITOR
+}

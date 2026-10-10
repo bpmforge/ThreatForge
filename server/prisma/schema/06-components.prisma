@@ -1,0 +1,214 @@
+// =============================================================================
+// Component, Connection & Boundary Models
+// =============================================================================
+
+model Component {
+  id          String        @id @default(cuid())
+  nodeId      String
+  type        ComponentType
+  name        String
+  description String?
+  trustLevel  TrustLevel    @default(MEDIUM)
+  properties  String        @default("{}")
+  positionX   Float
+  positionY   Float
+
+  // Rich metadata (from AI extraction or human input)
+  technology         String? // "PostgreSQL 17", "Redis 7", "TensorFlow"
+  dataClassification String? // "PUBLIC"|"INTERNAL"|"CONFIDENTIAL"|"RESTRICTED"
+  dataHandled        String  @default("[]") // JSON array: ["sensor_data","credentials","pii"]
+  accessPattern      String? // "PUBLIC_INTERNET"|"AUTHENTICATED_USERS"|"INTERNAL_ONLY"|"PARTNER_API"
+
+  // Notes (AI + human, separate so AI never overwrites human)
+  aiNotes       String? // AI-generated security context and analysis
+  engineerNotes String? // Human-written observations, decisions, rationale
+
+  // Extraction provenance
+  confidence     Float? // 0-1, how confident the AI was about this component
+  sourceText     String? // Quote from source document that identified this
+  sourceDocument String? // Which document it was extracted from
+
+  threatModel   ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+  boundary      Boundary?   @relation(fields: [boundaryId], references: [id], onDelete: SetNull)
+  boundaryId    String?
+
+  outgoingConnections Connection[]         @relation("ConnectionSource")
+  incomingConnections Connection[]         @relation("ConnectionTarget")
+  interfaces          ComponentInterface[]
+
+  dfdProcesses        DFDProcess[]
+  dfdDataStores       DFDDataStore[]
+  dfdExternalEntities DFDExternalEntity[]
+
+  // Incremental analysis tracking
+  analysisHash String? // SHA-256 of threat-surface-relevant fields + connection topology
+  analyzedAt   DateTime? // When AI last successfully analyzed this component
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([threatModelId, nodeId])
+  @@index([threatModelId])
+  @@map("components")
+}
+
+enum ComponentType {
+  EXTERNAL_USER
+  INTERNAL_USER
+  EXTERNAL_SYSTEM
+  SERVICE
+  API
+  FUNCTION
+  PROCESS
+  DATABASE
+  FILE_STORAGE
+  CACHE
+  QUEUE
+  LOAD_BALANCER
+  FIREWALL
+  API_GATEWAY
+}
+
+model ComponentInterface {
+  id                   String             @id @default(cuid())
+  interfaceId          String
+  name                 String
+  direction            InterfaceDirection @default(BIDIRECTIONAL)
+  position             InterfacePosition  @default(LEFT)
+  port                 Int?
+  protocol             Protocol?
+  authentication       AuthMethod?
+  encrypted            Boolean            @default(true)
+  dataClassifications  String             @default("[]")
+  externallyAccessible Boolean            @default(false)
+
+  component   Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  componentId String
+
+  sourceConnections Connection[] @relation("ConnectionSourceInterface")
+  targetConnections Connection[] @relation("ConnectionTargetInterface")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([componentId, interfaceId])
+  @@index([componentId])
+  @@map("component_interfaces")
+}
+
+enum InterfaceDirection {
+  INGRESS
+  EGRESS
+  BIDIRECTIONAL
+}
+
+enum InterfacePosition {
+  LEFT
+  RIGHT
+  TOP
+  BOTTOM
+}
+
+model Connection {
+  id                  String      @id @default(cuid())
+  edgeId              String
+  label               String?
+  protocol            Protocol?
+  authentication      AuthMethod?
+  dataTypes           String      @default("[]")
+  dataClassifications String      @default("[]")
+  encrypted           Boolean     @default(true)
+  description         String?
+
+  threatModel       ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId     String
+  sourceComponent   Component   @relation("ConnectionSource", fields: [sourceComponentId], references: [id], onDelete: Cascade)
+  sourceComponentId String
+  targetComponent   Component   @relation("ConnectionTarget", fields: [targetComponentId], references: [id], onDelete: Cascade)
+  targetComponentId String
+
+  sourceInterface   ComponentInterface? @relation("ConnectionSourceInterface", fields: [sourceInterfaceId], references: [id], onDelete: SetNull)
+  sourceInterfaceId String?
+  targetInterface   ComponentInterface? @relation("ConnectionTargetInterface", fields: [targetInterfaceId], references: [id], onDelete: SetNull)
+  targetInterfaceId String?
+
+  crossesBoundary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([threatModelId, edgeId])
+  @@index([threatModelId])
+  @@map("connections")
+}
+
+enum Protocol {
+  HTTP
+  HTTPS
+  GRPC
+  WEBSOCKET
+  TCP
+  UDP
+  AMQP
+  MQTT
+  KAFKA
+  POSTGRESQL
+  MYSQL
+  MONGODB
+  REDIS
+  SSH
+  SFTP
+  CUSTOM
+}
+
+enum AuthMethod {
+  NONE
+  API_KEY
+  JWT
+  OAUTH2
+  MTLS
+  BASIC
+  SAML
+  CUSTOM
+}
+
+enum DataType {
+  PII
+  PHI
+  FINANCIAL
+  CREDENTIALS
+  INTERNAL
+  PUBLIC
+  CUSTOM
+}
+
+model Boundary {
+  id          String     @id @default(cuid())
+  nodeId      String
+  name        String
+  trustLevel  TrustLevel @default(MEDIUM)
+  description String?
+  positionX   Float
+  positionY   Float
+  width       Float
+  height      Float
+
+  threatModel   ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+  components    Component[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([threatModelId, nodeId])
+  @@index([threatModelId])
+  @@map("boundaries")
+}
+
+enum TrustLevel {
+  HIGH
+  MEDIUM
+  LOW
+  UNTRUSTED
+}

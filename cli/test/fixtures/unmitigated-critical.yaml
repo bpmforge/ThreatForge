@@ -1,0 +1,19 @@
+version: "1.0"
+model:
+  name: Bad Model
+components:
+  - id: api
+    name: API
+    type: SERVICE
+threats:
+  - id: T1
+    name: Auth bypass
+    severity: CRITICAL
+    status: OPEN
+    mitigations:
+      - description: Add auth
+        status: NOT_IMPLEMENTED
+  - id: T2
+    name: Open redirect
+    severity: HIGH
+    status: OPEN

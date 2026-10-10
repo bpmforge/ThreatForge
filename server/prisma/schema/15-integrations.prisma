@@ -1,0 +1,112 @@
+// =============================================================================
+// Third-Party Integration Models
+// =============================================================================
+
+model Integration {
+  id             String            @id @default(cuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           IntegrationType
+  name           String
+  status         IntegrationStatus @default(INACTIVE)
+
+  config        String
+  credentials   String?
+  scopes        String  @default("[]")
+  webhookUrl    String?
+  webhookSecret String?
+
+  lastSyncedAt        DateTime?
+  lastSyncStatus      String?
+  syncErrors          Int       @default(0)
+  consecutiveFailures Int       @default(0)
+
+  mappings IntegrationMapping[]
+  syncLogs IntegrationSyncLog[]
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, type])
+  @@index([organizationId])
+  @@index([status])
+  @@map("integrations")
+}
+
+model IntegrationMapping {
+  id            String      @id @default(cuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  localType     String
+  localId       String
+  externalType  String
+  externalId    String
+  externalUrl   String?
+  externalKey   String?
+  syncDirection SyncDirection @default(BIDIRECTIONAL)
+  lastSyncedAt  DateTime?
+  metadata      String        @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([integrationId, localType, localId])
+  @@unique([integrationId, externalType, externalId])
+  @@index([integrationId])
+  @@index([localType, localId])
+  @@map("integration_mappings")
+}
+
+model IntegrationSyncLog {
+  id            String        @id @default(cuid())
+  integrationId String
+  integration   Integration   @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  direction     SyncDirection
+  status        SyncStatus
+  itemsSynced   Int           @default(0)
+  itemsFailed   Int           @default(0)
+  errorMessage  String?
+  details       String?
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([integrationId, startedAt])
+  @@map("integration_sync_logs")
+}
+
+enum IntegrationType {
+  JIRA
+  GITHUB_ISSUES
+  AZURE_DEVOPS
+  LINEAR
+  ASANA
+  SLACK
+  TEAMS
+  CUSTOM_WEBHOOK
+}
+
+enum IntegrationStatus {
+  INACTIVE
+  CONNECTING
+  ACTIVE
+  ERROR
+  SUSPENDED
+}
+
+enum SyncDirection {
+  PUSH_ONLY
+  PULL_ONLY
+  BIDIRECTIONAL
+}
+
+enum SyncStatus {
+  IN_PROGRESS
+  COMPLETED
+  PARTIAL
+  FAILED
+}

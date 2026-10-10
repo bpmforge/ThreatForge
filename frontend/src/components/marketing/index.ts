@@ -1,0 +1,1 @@
+export { ValueProposition } from "./ValueProposition";

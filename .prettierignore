@@ -1,0 +1,14 @@
+node_modules
+.next
+dist
+build
+coverage
+**/generated/**
+*.json
+*.md
+*.yml
+*.yaml
+*.prisma
+*.sql
+*.css
+*.html

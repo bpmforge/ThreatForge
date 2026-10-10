@@ -1,0 +1,94 @@
+// =============================================================================
+// Audit Log Models
+// =============================================================================
+
+model AuditLog {
+  id           String       @id @default(cuid())
+  scope        AuditScope   @default(ORGANIZATION)
+  action       AuditAction
+  resourceType ResourceType
+  resourceId   String
+  resourceName String?
+
+  changes       String?
+  metadata      String?
+  previousState String?
+  newState      String?
+
+  userId    String
+  userEmail String
+
+  organizationId String?
+  modelId        String?
+  requestId      String?
+  impersonatedBy String?
+
+  // AI-specific tracking
+  aiProviderId    String?
+  aiProviderName  String?
+  aiModel         String?
+  aiInputTokens   Int?
+  aiOutputTokens  Int?
+  aiTotalTokens   Int?
+  aiLatencyMs     Int?
+  aiEstimatedCost Float?
+
+  createdAt DateTime @default(now())
+
+  @@index([scope, createdAt])
+  @@index([resourceType, resourceId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([createdAt])
+  @@index([aiProviderId])
+  @@map("audit_logs")
+}
+
+enum AuditScope {
+  SYSTEM
+  ORGANIZATION
+  MODEL
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  VIEW
+  EXPORT
+  SHARE
+  LOGIN
+  LOGOUT
+  INVITE
+  ACCEPT_INVITE
+  DECLINE_INVITE
+  SUSPEND
+  UNSUSPEND
+  IMPERSONATE
+  OWNERSHIP_TRANSFER
+  AI_QUERY
+  AI_PROVIDER_ADDED
+  AI_PROVIDER_UPDATED
+  AI_PROVIDER_REMOVED
+  AI_PROVIDER_TEST
+  SSO_CONFIG_UPDATED
+  SSO_CONFIG_DELETED
+  WEBHOOK_CREATED
+  WEBHOOK_UPDATED
+  WEBHOOK_DELETED
+  SECURITY_BLOCK // Blocked security-sensitive operation (rate limit, unauthorized setup attempt)
+}
+
+enum ResourceType {
+  THREAT_MODEL
+  PROJECT
+  ORGANIZATION
+  THREAT
+  MITIGATION
+  USER
+  SYSTEM_SETTINGS
+  DFD
+  SEQUENCE_DIAGRAM
+  THREAT_LIBRARY
+  COMPONENT_TEMPLATE
+}

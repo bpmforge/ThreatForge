@@ -1,0 +1,23 @@
+# Auto-loaded by a plain `docker compose up` (Compose merges it over
+# docker-compose.yml). Makes a fresh clone self-contained: no pre-existing
+# external network, ports published on localhost.
+#
+# Explicit `-f docker-compose.yml` (a host that fronts the stack with its own
+# nginx on threatforge_frontend) does NOT load this
+# file, so that deployment is unchanged. Requires Compose >= 2.24 (`!reset`).
+
+networks:
+  frontend:
+    external: !reset null
+    name: !reset null
+    driver: bridge
+
+services:
+  server:
+    ports:
+      - "${SERVER_PORT:-3001}:3001"
+    environment:
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+  frontend:
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"

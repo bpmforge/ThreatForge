@@ -1,0 +1,28 @@
+// knip config for server/ — run by scripts/code-health.sh with --directory server.
+// Every entry below encodes a known false-positive family from the 2026-10 audit,
+// so whatever knip still reports is a real unused file/export/dependency.
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/index.ts",
+    // FP family: operator/dev scripts run by hand or via `tsx <path>` — nothing imports them.
+    "scripts/**/*.ts",
+    "src/scripts/**/*.ts",
+    // FP family: prisma seed entry (`npm run db:seed`).
+    "prisma/seed/index.ts"
+  ],
+  "project": ["src/**/*.ts", "scripts/**/*.ts", "prisma/**/*.ts"],
+  // FP family: prisma schemas, incl. the generated postgres variant (scripts/sync-schemas.ts).
+  // Test support used only by test files, which are outside the knip project.
+  "ignore": ["src/test/**"],
+  "ignoreFiles": ["prisma/**/*.prisma"],
+  "ignoreDependencies": [
+    // Loaded by pino as a transport *string* target ("pino-pretty"), never imported.
+    "pino-pretty",
+    // Pulled in through the `typescript-eslint` meta-package in eslint.config.js.
+    "@typescript-eslint/eslint-plugin",
+    "@typescript-eslint/parser",
+    // Loaded with createRequire in services/reports/docx-generator.ts (CJS-only exports).
+    "docx"
+  ]
+}

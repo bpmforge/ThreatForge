@@ -1,0 +1,255 @@
+{
+  "_README": [
+    "Which code version produced each seed recording.",
+    "",
+    "eval-run pools seeds to compute per-expectation hit rates. Pooling samples",
+    "from DIFFERENT pipeline code silently mixes populations: the resulting",
+    "STABLE/FLAKY/ABSENT labels then describe no version in particular. That is",
+    "the same failure mode as the stale-precision bug \u2014 a number that looks",
+    "current and is not.",
+    "",
+    "A filename suffix cannot enforce this, so the grouping lives here. Seeds",
+    "with no entry are reported as code 'unknown' and grouped separately rather",
+    "than being folded into a real group.",
+    "",
+    "  code        stable label for one pipeline version; seeds sharing it are",
+    "              genuinely comparable and may be pooled",
+    "  sha         commit the recording ran against",
+    "  note        what changed, so the groups can be read as a sequence"
+  ],
+  "seeds": {
+    "golden-seed-01.json": {
+      "code": "step-1",
+      "sha": "178fab67",
+      "recordedAt": "2026-08-16",
+      "note": "P3 + R18 (+ data-class follow-up) + R19 + R17"
+    },
+    "golden-seed-02.json": {
+      "code": "step-1",
+      "sha": "178fab67",
+      "recordedAt": "2026-08-16",
+      "note": "variance check \u2014 identical code to seed 01"
+    },
+    "golden-seed-03.json": {
+      "code": "step-1",
+      "sha": "af0e6484",
+      "recordedAt": "2026-08-17",
+      "note": "Step 1 as merged; same pipeline code as 178fab67"
+    },
+    "golden-seed-04-r20.json": {
+      "code": "step-1+r20",
+      "sha": "9d15cb9a",
+      "recordedAt": "2026-08-17",
+      "note": "adds CWE_NAMES so reference sections carry meaning"
+    },
+    "golden-seed-05-r20.json": {
+      "code": "step-1+r20",
+      "sha": "58ab5669",
+      "recordedAt": "2026-08-17",
+      "note": "R20 as merged"
+    },
+    "golden-seed-06-r20.json": {
+      "code": "step-1+r20",
+      "sha": "58ab5669",
+      "recordedAt": "2026-08-17",
+      "note": "R20 as merged"
+    },
+    "golden-seed-07-roleinf.json": {
+      "code": "step-1+r20+role-inference",
+      "sha": "fa7ef076",
+      "recordedAt": "2026-08-17",
+      "note": "security-role inference routes an auth service typed MICROSERVICE to AUTH_SERVICE reference data"
+    },
+    "golden-seed-08-mtplx27b.json": {
+      "code": "mtplx-27b-baseline",
+      "sha": "64f5b46a",
+      "recordedAt": "2026-09-23",
+      "note": "M-01 Step 0 baseline: provider MTPLX (local), model Youssofal--Qwen3.8-27B-MTPLX-Optimized-Speed, PARITY_THINKING=off, MTPLX supervisor with --paged-kv-quantization q8. All 12/12 components covered (166 threats); mitigations + LLM dedup passes failed under GPU memory pressure near the end of the run (HTTP 507) and are absent from this snapshot, so mitigationCount is 0 throughout \u2014 does not affect recall/precision, which key on name/category/componentId only."
+    },
+    "golden-seed-09-mtplx27b.json": {
+      "code": "mtplx-27b-baseline",
+      "sha": "64f5b46a",
+      "recordedAt": "2026-09-23",
+      "note": "M-01 Step 0 baseline, second recording, same config as seed 08 (no server restart between seeds 1 and 2). All 12/12 components covered (163 threats) with zero 507s during category analysis \u2014 same pattern as seed 08: GPU memory pressure (164 x HTTP 507) hit only mitigations + LLM dedup, after all category analysis had completed cleanly. mitigationCount is 0 throughout."
+    },
+    "golden-seed-10-mtplx27b.json": {
+      "code": "mtplx-27b-baseline",
+      "sha": "64f5b46a",
+      "recordedAt": "2026-09-23",
+      "note": "M-01 Step 0 baseline, third recording. MTPLX supervisor restarted (launchctl kickstart) and reconfirmed --paged-kv-quantization q8 before this seed, per the session bank's observed ~40-50min accumulation limit. All 12/12 components covered (169 threats) with zero 507s during category analysis; 180 x HTTP 507 again hit only mitigations + LLM dedup at the end. mitigationCount is 0 throughout."
+    },
+    "golden-seed-11-mtplx27b-x06.json": {
+      "code": "mtplx-27b-x06-baseline",
+      "sha": "d7f89524",
+      "recordedAt": "2026-09-24",
+      "tokens": {
+        "calls": 81,
+        "callsWithoutUsage": 0,
+        "promptTokens": 74685,
+        "completionTokens": 58114,
+        "totalTokens": 132799,
+        "maxPromptTokens": 1293
+      },
+      "note": "Wave X token baseline (X-01 meter + X-06 in-flight limiter, no prompt change), same MTPLX config as seeds 08-10 (PARITY_THINKING=off, q8). MTPLX process started 2026-09-24 08:26, not restarted before this seed. 12/12 components covered (164 threats) in 2346s; category analysis completed cleanly, then 171 x HTTP 507 in mitigations, compound, calibration and LLM dedup (all 157 mitigation calls failed back-to-back), so mitigationCount is 0 throughout and the tokens above are category-analysis tokens only (81 metered successful calls). X-06 alone does not prevent the 507s: MTPLX active memory climbed 20 -> 52.6 GB over the run and is released only when the server idles."
+    },
+    "golden-seed-12-mtplx27b-x08.json": {
+      "code": "mtplx-27b-x08-baseline",
+      "sha": "79e86724",
+      "recordedAt": "2026-09-24",
+      "tokens": {
+        "calls": 251,
+        "callsWithoutUsage": 0,
+        "promptTokens": 257180,
+        "completionTokens": 173179,
+        "totalTokens": 430359,
+        "maxPromptTokens": 1293
+      },
+      "note": "Wave X BEFORE for prompt tickets: main with X-01 meter, X-06 limiter and X-08 507 backoff, no prompt change; same MTPLX config as seeds 08-11, no supervisor restart. First MTPLX seed with a complete run: 161 identification threats, mitigations on all 149 final threats (580 mitigations, 161 mitigation calls, one per threat), compound (3), calibration and LLM dedup (15 collapsed; 4 dedup groups kept as-is after unparseable replies) all completed in 6989s. 9 HTTP 507s, all recovered by X-08 backoff (6 events, at most 2 backoffs each)."
+    },
+    "golden-seed-13-mtplx27b-x02.json": {
+      "code": "mtplx-27b-x02",
+      "sha": "6c48d7f9",
+      "recordedAt": "2026-09-24",
+      "tokens": {
+        "calls": 260,
+        "callsWithoutUsage": 0,
+        "promptTokens": 221506,
+        "completionTokens": 202204,
+        "totalTokens": 423710,
+        "maxPromptTokens": 1318
+      },
+      "note": "X-02 (static category/mitigation instructions moved into one byte-identical system message per stage) on top of seed 12 main. Same MTPLX config, no restart. 171 identified, 166 final threats (8 collapsed by dedup, 3 compound), mitigations on 166/166 (790 total, 4.8 each vs 3.9 in seed 12), 7865s, 3 HTTP 507 backoffs all recovered, 4 dedup groups kept after unparseable replies. Also the new canonical golden-threats.json / llm-journal.json."
+    },
+    "golden-seed-14-mtplx27b-x07.json": {
+      "code": "mtplx-27b-x07",
+      "sha": "abd84a8b",
+      "recordedAt": "2026-09-24",
+      "tokens": {
+        "calls": 194,
+        "callsWithoutUsage": 0,
+        "promptTokens": 181280,
+        "completionTokens": 177200,
+        "totalTokens": 358480,
+        "maxPromptTokens": 1318
+      },
+      "note": "X-07 (mitigations after dedup + confidence floor, 3 threats per call) on top of X-02 main 4b78793e. Same MTPLX config, no restart. 173 identified, 161 final (15 collapsed, 3 compound), mitigations on 161/161 (577, 3.6 each), 7366s, 4 HTTP 507 backoffs recovered. Recorded before the bracket-repair fix: 16 of 57 batch replies lacked their closing ] and fell back to single-threat calls, so the measured 194 calls include ~43 avoidable retries (104 mitigation calls; ~61 projected with the fix). Golden regenerated by replay with the fix. Also the new canonical golden-threats.json / llm-journal.json."
+    },
+    "golden-seed-15-tc-unc-x09.json": {
+      "code": "tc-unc-x09-baseline",
+      "sha": "4b78793e",
+      "recordedAt": "2026-09-26",
+      "tokens": {
+        "calls": 258,
+        "callsWithoutUsage": 0,
+        "promptTokens": 219321,
+        "completionTokens": 184360,
+        "totalTokens": 403681,
+        "maxPromptTokens": 1318
+      },
+      "note": "X-09 model switch: same code as seed 13 (main at 4b78793e, X-02 merged), re-recorded on the MTPLX app's server (port 8088) with qwen3.8-27b-thinkingcap-uncensored-mtplx-optimized-speed (local Forge build of ThinkingCap-Qwen3.8-27B, Optimized-Speed recipe, turbo, MTP depth 2, no q8 KV), PARITY_THINKING=off. 170 identified, 143 final threats (3 compound), mitigations on 143/143 (678 total, 4.7 each), 4 parse failures, 9232s, 12 HTTP 507 backoffs all recovered. New model: BEFORE for every later ticket; not comparable with seeds 08-14."
+    },
+    "golden-seed-16-tc-unc-x07.json": {
+      "code": "tc-unc-x07",
+      "sha": "fd815048",
+      "recordedAt": "2026-09-27",
+      "tokens": {
+        "calls": 149,
+        "callsWithoutUsage": 0,
+        "promptTokens": 140810,
+        "completionTokens": 140284,
+        "totalTokens": 281094,
+        "maxPromptTokens": 1318
+      },
+      "note": "X-07 (mitigations after dedup + confidence floor, batched per component; one shared pass for the legacy and v2 paths) on top of seed 15 main, same model and config (MTPLX app :8088, ThinkingCap-Uncensored build, PARITY_THINKING=off). 173 identified, 151 final threats, mitigations on 151/151 (512 total, 3.4 each), 52 mitigation calls (170 in seed 15), 5 parse failures, 6667s, 6 HTTP 507 backoffs all recovered."
+    },
+    "golden-seed-17-tc-unc-x05.json": {
+      "code": "tc-unc-x05",
+      "sha": "ed8fdade",
+      "recordedAt": "2026-09-27",
+      "tokens": {
+        "calls": 145,
+        "callsWithoutUsage": 0,
+        "promptTokens": 136770,
+        "completionTokens": 138749,
+        "totalTokens": 275519,
+        "maxPromptTokens": 1318
+      },
+      "note": "X-05 per-stage generation settings on seed 16's main, same model (MTPLX app :8088, ThinkingCap-Uncensored build). Recorded WITHOUT PARITY_THINKING=off: thinking/max_tokens came from generation-settings.ts (all 73 category calls thinking off at 1,500, no category reply near the cap). 172 identified, 145 final threats, mitigations on 145/145 (519, 3.6 each), 54 mitigation calls, 5 parse failures, 5601s, 5 HTTP 507 backoffs all recovered. One dedup reply hit the then-3,500 cap (group kept as-is); the cap is 5,000 in the PR."
+    },
+    "golden-seed-18-tc-unc-x03.json": {
+      "code": "tc-unc-x03",
+      "sha": "8d72382f",
+      "recordedAt": "2026-09-27",
+      "tokens": {
+        "calls": 86,
+        "callsWithoutUsage": 0,
+        "promptTokens": 85446,
+        "completionTokens": 108055,
+        "totalTokens": 193501,
+        "maxPromptTokens": 1972
+      },
+      "note": "X-03 chunked category first pass on seed 17's main, same model and command (MTPLX app :8088, ThinkingCap-Uncensored build). 136 identified, 123 final, 417 mitigations (3.4 each), 24 chunk + 4 follow-up category calls, 43 mitigation calls, 0 chunk fallbacks, 2 parse failures, 4026s, 2 recovered 507s. Recall 37/40."
+    },
+    "golden-seed-19-tc-unc-x03.json": {
+      "code": "tc-unc-x03",
+      "sha": "8d72382f",
+      "recordedAt": "2026-09-27",
+      "tokens": {
+        "calls": 96,
+        "callsWithoutUsage": 0,
+        "promptTokens": 94145,
+        "completionTokens": 112281,
+        "totalTokens": 206426,
+        "maxPromptTokens": 1972
+      },
+      "note": "X-03 chunked category first pass on seed 17's main, same model and command (MTPLX app :8088, ThinkingCap-Uncensored build). 143 identified, 136 final, 468 mitigations (3.4 each), 47 mitigation calls, 0 chunk fallbacks, 2 parse failures, 4524s, 2 recovered 507s. Recall 38/40."
+    },
+    "golden-seed-20-tc-unc-x03.json": {
+      "code": "tc-unc-x03",
+      "sha": "8d72382f",
+      "recordedAt": "2026-09-27",
+      "tokens": {
+        "calls": 93,
+        "callsWithoutUsage": 0,
+        "promptTokens": 92233,
+        "completionTokens": 108892,
+        "totalTokens": 201125,
+        "maxPromptTokens": 1972
+      },
+      "note": "X-03 chunked category first pass on seed 17's main, same model and command (MTPLX app :8088, ThinkingCap-Uncensored build). 139 identified, 127 final, 425 mitigations (3.4 each), 45 mitigation calls, 3 chunk fallbacks (one Redis Cache S/T/R reply unparseable -> single-category path), 0 parse failures, 4559s, 3 recovered 507s. Recall 33/40."
+    },
+    "golden-seed-21-c01.json": {
+      "code": "c01-batch",
+      "sha": "7f7aae84",
+      "recordedAt": "2026-10-02",
+      "tokens": {
+        "calls": 93,
+        "callsWithoutUsage": 0,
+        "totalTokens": 205953
+      },
+      "note": "C-01 prompt batch (R16/R20/R21/R23/R24/P7/B1) on E-03 main, same model. 93 calls, 4271s. Recall 37/40."
+    },
+    "golden-seed-22-c01.json": {
+      "code": "c01-batch",
+      "sha": "7f7aae84",
+      "recordedAt": "2026-10-02",
+      "tokens": {
+        "calls": 90,
+        "callsWithoutUsage": 0,
+        "totalTokens": 212301
+      },
+      "note": "C-01 prompt batch (R16/R20/R21/R23/R24/P7/B1) on E-03 main, same model. 90 calls, 4597s. Recall 35/40."
+    },
+    "golden-seed-23-c01.json": {
+      "code": "c01-batch",
+      "sha": "7f7aae84",
+      "recordedAt": "2026-10-02",
+      "tokens": {
+        "calls": 91,
+        "callsWithoutUsage": 0,
+        "totalTokens": 207407
+      },
+      "note": "C-01 prompt batch (R16/R20/R21/R23/R24/P7/B1) on E-03 main, same model. 91 calls, 4391s. Recall 38/40."
+    }
+  }
+}

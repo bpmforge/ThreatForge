@@ -1,0 +1,508 @@
+{
+  "name": "Go-Forward Parity Fixture — Acme Commerce Platform",
+  "description": "Deterministic fixture for the Track A parity harness (A0-1). A realistic e-commerce SaaS: public web portal + API gateway in a DMZ, core services + data stores in an internal zone, three external entities. 12 components, 2 trust boundaries, 15 connections with protocol/auth/encryption, 1 sequence diagram.",
+  "methodology": "STRIDE",
+  "canvasState": {
+    "nodes": [
+      {
+        "id": "boundary-dmz",
+        "type": "boundary",
+        "position": { "x": 300, "y": 40 },
+        "width": 520,
+        "height": 360,
+        "data": {
+          "label": "DMZ",
+          "trustLevel": "DMZ",
+          "description": "Public-facing zone behind the edge firewall. Terminates TLS and exposes the web portal and API gateway."
+        }
+      },
+      {
+        "id": "boundary-internal",
+        "type": "boundary",
+        "position": { "x": 900, "y": 40 },
+        "width": 720,
+        "height": 700,
+        "data": {
+          "label": "Internal Services Zone",
+          "trustLevel": "INTERNAL",
+          "description": "Private VPC subnet. Core services, datastores, and the message broker. No direct ingress from the internet."
+        }
+      },
+      {
+        "id": "comp-end-user",
+        "type": "component",
+        "position": { "x": 40, "y": 120 },
+        "data": {
+          "label": "End User",
+          "type": "ACTOR",
+          "description": "Customer using a browser to shop and manage orders.",
+          "trustLevel": "UNTRUSTED",
+          "securityContext": {
+            "dataClassification": "PUBLIC",
+            "dataTypes": ["session cookies", "form input"],
+            "accessPattern": "PUBLIC"
+          }
+        }
+      },
+      {
+        "id": "comp-payment-gateway",
+        "type": "component",
+        "position": { "x": 40, "y": 420 },
+        "data": {
+          "label": "Stripe Payment Gateway",
+          "type": "EXTERNAL_ENTITY",
+          "description": "Third-party payment processor. Receives tokenized card data; returns charge results via webhook.",
+          "trustLevel": "EXTERNAL",
+          "technology": "Stripe API v2024",
+          "securityContext": {
+            "dataClassification": "RESTRICTED",
+            "dataTypes": ["payment tokens", "charge amounts"],
+            "accessPattern": "EXTERNAL_PARTNER"
+          }
+        }
+      },
+      {
+        "id": "comp-email-provider",
+        "type": "component",
+        "position": { "x": 40, "y": 620 },
+        "data": {
+          "label": "SendGrid Email Service",
+          "type": "EXTERNAL_ENTITY",
+          "description": "Third-party transactional email provider for order confirmations and password resets.",
+          "trustLevel": "EXTERNAL",
+          "technology": "SendGrid v3 API",
+          "securityContext": {
+            "dataClassification": "CONFIDENTIAL",
+            "dataTypes": ["email addresses", "order summaries"],
+            "accessPattern": "EXTERNAL_PARTNER"
+          }
+        }
+      },
+      {
+        "id": "comp-web-portal",
+        "type": "component",
+        "position": { "x": 360, "y": 120 },
+        "parentId": "boundary-dmz",
+        "data": {
+          "label": "Customer Web Portal",
+          "type": "WEB_APP",
+          "description": "Next.js storefront. Renders catalog, cart, and checkout; talks only to the API gateway.",
+          "trustLevel": "DMZ",
+          "technology": "Next.js 16 / Node 22",
+          "securityContext": {
+            "dataClassification": "CONFIDENTIAL",
+            "dataTypes": ["session tokens", "PII", "cart contents"],
+            "accessPattern": "PUBLIC",
+            "complianceFrameworks": ["PCI-DSS", "SOC2"],
+            "existingControls": ["WAF", "CSP headers", "rate limiting"]
+          }
+        }
+      },
+      {
+        "id": "comp-api-gateway",
+        "type": "component",
+        "position": { "x": 360, "y": 280 },
+        "parentId": "boundary-dmz",
+        "data": {
+          "label": "API Gateway",
+          "type": "API_GATEWAY",
+          "description": "Kong gateway. Validates JWTs, enforces rate limits, and routes to the core API.",
+          "trustLevel": "DMZ",
+          "technology": "Kong 3.x",
+          "securityContext": {
+            "dataClassification": "CONFIDENTIAL",
+            "dataTypes": ["JWT tokens", "API requests"],
+            "accessPattern": "PUBLIC",
+            "existingControls": ["JWT validation", "rate limiting", "IP allowlists"]
+          }
+        }
+      },
+      {
+        "id": "comp-core-api",
+        "type": "component",
+        "position": { "x": 960, "y": 100 },
+        "parentId": "boundary-internal",
+        "data": {
+          "label": "Core REST API",
+          "type": "API",
+          "description": "Fastify monolith fronting the domain services. Owns request orchestration and response shaping.",
+          "trustLevel": "INTERNAL",
+          "technology": "Fastify 5 / Node 22",
+          "securityContext": {
+            "dataClassification": "CONFIDENTIAL",
+            "dataTypes": ["PII", "order data", "auth claims"],
+            "accessPattern": "INTERNAL_ONLY",
+            "complianceFrameworks": ["SOC2"]
+          }
+        }
+      },
+      {
+        "id": "comp-auth-service",
+        "type": "component",
+        "position": { "x": 960, "y": 260 },
+        "parentId": "boundary-internal",
+        "data": {
+          "label": "Auth Service",
+          "type": "MICROSERVICE",
+          "description": "Issues and verifies JWTs, manages credentials, MFA, and password reset flows.",
+          "trustLevel": "INTERNAL",
+          "technology": "Node 22 / jose",
+          "securityContext": {
+            "dataClassification": "RESTRICTED",
+            "dataTypes": ["password hashes", "MFA secrets", "refresh tokens"],
+            "accessPattern": "INTERNAL_ONLY",
+            "existingControls": ["argon2 hashing", "token rotation"]
+          }
+        }
+      },
+      {
+        "id": "comp-order-service",
+        "type": "component",
+        "position": { "x": 1240, "y": 100 },
+        "parentId": "boundary-internal",
+        "data": {
+          "label": "Order Service",
+          "type": "MICROSERVICE",
+          "description": "Order lifecycle: cart → placed → fulfilled. Publishes order events to the broker.",
+          "trustLevel": "INTERNAL",
+          "technology": "Node 22",
+          "securityContext": {
+            "dataClassification": "CONFIDENTIAL",
+            "dataTypes": ["order records", "shipping addresses"],
+            "accessPattern": "INTERNAL_ONLY"
+          }
+        }
+      },
+      {
+        "id": "comp-billing-service",
+        "type": "component",
+        "position": { "x": 1240, "y": 260 },
+        "parentId": "boundary-internal",
+        "data": {
+          "label": "Billing Service",
+          "type": "MICROSERVICE",
+          "description": "Creates charges via the payment gateway, reconciles invoices, emits billing events.",
+          "trustLevel": "INTERNAL",
+          "technology": "Node 22",
+          "securityContext": {
+            "dataClassification": "RESTRICTED",
+            "dataTypes": ["payment tokens", "invoice records"],
+            "accessPattern": "INTERNAL_ONLY",
+            "complianceFrameworks": ["PCI-DSS"]
+          }
+        }
+      },
+      {
+        "id": "comp-postgres",
+        "type": "component",
+        "position": { "x": 960, "y": 460 },
+        "parentId": "boundary-internal",
+        "data": {
+          "label": "PostgreSQL Primary",
+          "type": "DATABASE",
+          "description": "System of record: users, orders, invoices. Encrypted at rest, daily snapshots.",
+          "trustLevel": "TRUSTED",
+          "technology": "PostgreSQL 17",
+          "securityContext": {
+            "dataClassification": "RESTRICTED",
+            "dataTypes": ["PII", "password hashes", "order records", "invoices"],
+            "accessPattern": "INTERNAL_ONLY",
+            "existingControls": ["TDE", "least-privilege roles", "daily backups"]
+          }
+        }
+      },
+      {
+        "id": "comp-redis",
+        "type": "component",
+        "position": { "x": 1240, "y": 460 },
+        "parentId": "boundary-internal",
+        "data": {
+          "label": "Redis Cache",
+          "type": "CACHE",
+          "description": "Session store and hot-path cache for catalog reads.",
+          "trustLevel": "INTERNAL",
+          "technology": "Redis 7",
+          "securityContext": {
+            "dataClassification": "CONFIDENTIAL",
+            "dataTypes": ["session tokens", "cached catalog data"],
+            "accessPattern": "INTERNAL_ONLY"
+          }
+        }
+      },
+      {
+        "id": "comp-rabbitmq",
+        "type": "component",
+        "position": { "x": 1240, "y": 600 },
+        "parentId": "boundary-internal",
+        "data": {
+          "label": "RabbitMQ Broker",
+          "type": "QUEUE",
+          "description": "Async event backbone: order-placed, invoice-created, email-requested.",
+          "trustLevel": "INTERNAL",
+          "technology": "RabbitMQ 3.13",
+          "securityContext": {
+            "dataClassification": "CONFIDENTIAL",
+            "dataTypes": ["order events", "billing events"],
+            "accessPattern": "INTERNAL_ONLY"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-user-portal",
+        "source": "comp-end-user",
+        "target": "comp-web-portal",
+        "data": {
+          "label": "Browse / checkout",
+          "protocol": "HTTPS",
+          "authentication": "None",
+          "encrypted": true,
+          "dataClassifications": ["PUBLIC", "CONFIDENTIAL"],
+          "description": "Anonymous until login; session cookie afterwards."
+        }
+      },
+      {
+        "id": "edge-portal-gateway",
+        "source": "comp-web-portal",
+        "target": "comp-api-gateway",
+        "data": {
+          "label": "API calls",
+          "protocol": "HTTPS",
+          "authentication": "JWT",
+          "encrypted": true,
+          "dataClassifications": ["CONFIDENTIAL"]
+        }
+      },
+      {
+        "id": "edge-gateway-api",
+        "source": "comp-api-gateway",
+        "target": "comp-core-api",
+        "data": {
+          "label": "Routed requests",
+          "protocol": "HTTPS",
+          "authentication": "JWT",
+          "encrypted": true,
+          "dataClassifications": ["CONFIDENTIAL"]
+        }
+      },
+      {
+        "id": "edge-api-auth",
+        "source": "comp-core-api",
+        "target": "comp-auth-service",
+        "data": {
+          "label": "Token verify / issue",
+          "protocol": "gRPC",
+          "authentication": "mTLS",
+          "encrypted": true,
+          "dataClassifications": ["RESTRICTED"]
+        }
+      },
+      {
+        "id": "edge-api-orders",
+        "source": "comp-core-api",
+        "target": "comp-order-service",
+        "data": {
+          "label": "Order ops",
+          "protocol": "gRPC",
+          "authentication": "mTLS",
+          "encrypted": true,
+          "dataClassifications": ["CONFIDENTIAL"]
+        }
+      },
+      {
+        "id": "edge-api-billing",
+        "source": "comp-core-api",
+        "target": "comp-billing-service",
+        "data": {
+          "label": "Billing ops",
+          "protocol": "gRPC",
+          "authentication": "mTLS",
+          "encrypted": true,
+          "dataClassifications": ["RESTRICTED"]
+        }
+      },
+      {
+        "id": "edge-auth-db",
+        "source": "comp-auth-service",
+        "target": "comp-postgres",
+        "data": {
+          "label": "Credential reads/writes",
+          "protocol": "PostgreSQL",
+          "authentication": "Basic",
+          "encrypted": true,
+          "dataClassifications": ["RESTRICTED"]
+        }
+      },
+      {
+        "id": "edge-orders-db",
+        "source": "comp-order-service",
+        "target": "comp-postgres",
+        "data": {
+          "label": "Order persistence",
+          "protocol": "PostgreSQL",
+          "authentication": "Basic",
+          "encrypted": true,
+          "dataClassifications": ["CONFIDENTIAL"]
+        }
+      },
+      {
+        "id": "edge-billing-db",
+        "source": "comp-billing-service",
+        "target": "comp-postgres",
+        "data": {
+          "label": "Invoice persistence",
+          "protocol": "PostgreSQL",
+          "authentication": "Basic",
+          "encrypted": true,
+          "dataClassifications": ["RESTRICTED"]
+        }
+      },
+      {
+        "id": "edge-api-redis",
+        "source": "comp-core-api",
+        "target": "comp-redis",
+        "data": {
+          "label": "Catalog cache",
+          "protocol": "Redis",
+          "authentication": "API_KEY",
+          "encrypted": false,
+          "dataClassifications": ["CONFIDENTIAL"],
+          "description": "Plaintext on the internal subnet — flagged risk."
+        }
+      },
+      {
+        "id": "edge-auth-redis",
+        "source": "comp-auth-service",
+        "target": "comp-redis",
+        "data": {
+          "label": "Session store",
+          "protocol": "Redis",
+          "authentication": "API_KEY",
+          "encrypted": false,
+          "dataClassifications": ["CONFIDENTIAL"]
+        }
+      },
+      {
+        "id": "edge-orders-queue",
+        "source": "comp-order-service",
+        "target": "comp-rabbitmq",
+        "data": {
+          "label": "order-placed events",
+          "protocol": "AMQP",
+          "authentication": "Basic",
+          "encrypted": true,
+          "dataClassifications": ["CONFIDENTIAL"]
+        }
+      },
+      {
+        "id": "edge-billing-queue",
+        "source": "comp-billing-service",
+        "target": "comp-rabbitmq",
+        "data": {
+          "label": "invoice-created events",
+          "protocol": "AMQP",
+          "authentication": "Basic",
+          "encrypted": true,
+          "dataClassifications": ["RESTRICTED"]
+        }
+      },
+      {
+        "id": "edge-billing-stripe",
+        "source": "comp-billing-service",
+        "target": "comp-payment-gateway",
+        "data": {
+          "label": "Charge requests",
+          "protocol": "HTTPS",
+          "authentication": "API_KEY",
+          "encrypted": true,
+          "dataClassifications": ["RESTRICTED"]
+        }
+      },
+      {
+        "id": "edge-api-email",
+        "source": "comp-core-api",
+        "target": "comp-email-provider",
+        "data": {
+          "label": "Transactional email",
+          "protocol": "HTTPS",
+          "authentication": "API_KEY",
+          "encrypted": true,
+          "dataClassifications": ["CONFIDENTIAL"]
+        }
+      }
+    ],
+    "viewport": { "x": 0, "y": 0, "zoom": 0.75 }
+  },
+  "sequenceDiagrams": [
+    {
+      "diagramName": "Checkout Flow",
+      "messages": [
+        {
+          "from": "End User",
+          "to": "Customer Web Portal",
+          "label": "Submit checkout form",
+          "protocol": "HTTPS",
+          "authentication": "None"
+        },
+        {
+          "from": "Customer Web Portal",
+          "to": "API Gateway",
+          "label": "POST /v1/orders",
+          "protocol": "HTTPS",
+          "authentication": "JWT"
+        },
+        {
+          "from": "API Gateway",
+          "to": "Core REST API",
+          "label": "Forward order request",
+          "protocol": "HTTPS",
+          "authentication": "JWT"
+        },
+        {
+          "from": "Core REST API",
+          "to": "Auth Service",
+          "label": "Verify access token",
+          "protocol": "gRPC",
+          "authentication": "mTLS"
+        },
+        {
+          "from": "Core REST API",
+          "to": "Order Service",
+          "label": "Create order",
+          "protocol": "gRPC",
+          "authentication": "mTLS"
+        },
+        {
+          "from": "Order Service",
+          "to": "PostgreSQL Primary",
+          "label": "INSERT order",
+          "protocol": "PostgreSQL",
+          "authentication": "Basic"
+        },
+        {
+          "from": "Core REST API",
+          "to": "Billing Service",
+          "label": "Charge payment",
+          "protocol": "gRPC",
+          "authentication": "mTLS"
+        },
+        {
+          "from": "Billing Service",
+          "to": "Stripe Payment Gateway",
+          "label": "Create charge (tokenized card)",
+          "protocol": "HTTPS",
+          "authentication": "API_KEY"
+        },
+        {
+          "from": "Order Service",
+          "to": "RabbitMQ Broker",
+          "label": "Publish order-placed",
+          "protocol": "AMQP",
+          "authentication": "Basic",
+          "notes": "Email worker consumes and calls SendGrid"
+        }
+      ]
+    }
+  ]
+}

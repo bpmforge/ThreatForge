@@ -1,0 +1,19 @@
+version: "1.0"
+model:
+  name: Good Model
+components:
+  - id: api
+    name: API
+    type: SERVICE
+threats:
+  - id: T1
+    name: SQL injection
+    severity: CRITICAL
+    status: OPEN
+    mitigations:
+      - description: Parameterised queries
+        status: IMPLEMENTED
+  - id: T2
+    name: Verbose errors
+    severity: LOW
+    status: OPEN

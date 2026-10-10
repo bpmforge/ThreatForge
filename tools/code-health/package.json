@@ -1,0 +1,22 @@
+{
+  "name": "threatforge-code-health",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Duplicate and dead code ratchet (jscpd + knip + optional opengrep). See docs/process/CODE_HEALTH_RATCHET.md.",
+  "type": "module",
+  "scripts": {
+    "check": "bash ../../scripts/code-health.sh",
+    "check:update": "bash ../../scripts/code-health.sh --update",
+    "format": "prettier --ignore-path ../../.prettierignore --config ../../.prettierrc.json --write ../../server/src ../../server/scripts ../../frontend/src ../../frontend/e2e ../../sdk/src ../../cli",
+    "format:check": "prettier --ignore-path ../../.prettierignore --config ../../.prettierrc.json --check ../../server/src ../../server/scripts ../../frontend/src ../../frontend/e2e ../../sdk/src ../../cli"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "devDependencies": {
+    "jscpd": "5.4.0",
+    "knip": "6.40.0",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3"
+  }
+}

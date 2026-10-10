@@ -1,0 +1,91 @@
+// =============================================================================
+// Documents — Source documents imported into a threat model
+//
+// Stores the extracted text content and metadata of documents uploaded by users.
+// Documents are linked to requirements they produced and to the threat model
+// they belong to. Original binary files are NOT stored — only extracted text.
+// =============================================================================
+
+enum DocumentType {
+  PDF
+  DOCX
+  MARKDOWN
+  TERRAFORM
+  DOCKER_COMPOSE
+  OPENAPI
+  YAML
+  TEXT
+  SOURCE_CODE
+}
+
+model Document {
+  id String @id @default(cuid())
+
+  /// Original filename
+  name String
+
+  /// Document type
+  type DocumentType
+
+  /// File size in bytes (of original upload)
+  sizeBytes Int @default(0)
+
+  /// Estimated page count (for PDFs/DOCX)
+  pageCount Int?
+
+  /// Full extracted text content
+  content String
+
+  /// Whether the content was truncated (large documents)
+  contentTruncated Boolean @default(false)
+
+  /// sha256 of content — short-circuits no-op re-uploads and anchors citations to an immutable snapshot.
+  contentHash String @default("")
+
+  /// Groups all versions of the same logical document. First version: familyId == id.
+  documentFamilyId String @default("")
+
+  /// Monotonic per-family version. v1, v2, v3 …
+  version Int @default(1)
+
+  /// Set to the time this version was superseded by a newer upload. null = current.
+  supersededAt DateTime?
+
+  /// When AI extraction was last run on this document
+  extractedAt DateTime?
+
+  /// Summary/description of what was extracted
+  extractionSummary String?
+
+  /// Number of components extracted from this document
+  extractedComponentCount Int @default(0)
+
+  /// Number of requirements extracted from this document
+  extractedRequirementCount Int @default(0)
+
+  /// Parent threat model
+  threatModel   ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+
+  /// User who imported this document
+  importedBy   User   @relation("DocumentImporter", fields: [importedById], references: [id])
+  importedById String
+
+  /// Requirements extracted from this document
+  requirements Requirement[]
+
+  /// Detected sections (used as citation anchors)
+  sections DocumentSection[]
+
+  /// Citations that point at this document
+  citations Citation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([threatModelId])
+  @@index([threatModelId, supersededAt])
+  @@index([documentFamilyId, version])
+  @@index([importedById])
+  @@map("documents")
+}

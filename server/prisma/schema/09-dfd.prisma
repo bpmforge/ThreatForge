@@ -1,0 +1,179 @@
+// =============================================================================
+// Data Flow Diagram (DFD) Models
+// =============================================================================
+
+model DataFlowDiagram {
+  id          String   @id @default(cuid())
+  name        String
+  level       DFDLevel @default(CONTEXT)
+  canvasState String   @default("{\"nodes\":[],\"edges\":[],\"viewport\":{\"x\":0,\"y\":0,\"zoom\":1}}")
+
+  threatModel   ThreatModel       @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+  parentDfd     DataFlowDiagram?  @relation("DFDHierarchy", fields: [parentDfdId], references: [id])
+  parentDfdId   String?
+  childDfds     DataFlowDiagram[] @relation("DFDHierarchy")
+
+  processes        DFDProcess[]
+  dataStores       DFDDataStore[]
+  externalEntities DFDExternalEntity[]
+  dataFlows        DFDDataFlow[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([threatModelId])
+  @@map("data_flow_diagrams")
+}
+
+enum DFDLevel {
+  CONTEXT
+  PROCESS
+}
+
+model DFDProcess {
+  id          String  @id @default(cuid())
+  nodeId      String
+  number      String
+  name        String
+  description String?
+  positionX   Float
+  positionY   Float
+
+  dfd               DataFlowDiagram @relation(fields: [dfdId], references: [id], onDelete: Cascade)
+  dfdId             String
+  linkedComponent   Component?      @relation(fields: [linkedComponentId], references: [id], onDelete: SetNull)
+  linkedComponentId String?
+
+  outgoingFlows DFDDataFlow[] @relation("FlowSource")
+  incomingFlows DFDDataFlow[] @relation("FlowTarget")
+
+  @@unique([dfdId, nodeId])
+  @@map("dfd_processes")
+}
+
+model DFDDataStore {
+  id          String  @id @default(cuid())
+  nodeId      String
+  number      String
+  name        String
+  description String?
+  dataTypes   String  @default("[]")
+  positionX   Float
+  positionY   Float
+
+  dfd               DataFlowDiagram @relation(fields: [dfdId], references: [id], onDelete: Cascade)
+  dfdId             String
+  linkedComponent   Component?      @relation(fields: [linkedComponentId], references: [id], onDelete: SetNull)
+  linkedComponentId String?
+
+  incomingFlows DFDDataFlow[] @relation("FlowToDataStore")
+  outgoingFlows DFDDataFlow[] @relation("FlowFromDataStore")
+
+  @@unique([dfdId, nodeId])
+  @@map("dfd_data_stores")
+}
+
+model DFDExternalEntity {
+  id          String             @id @default(cuid())
+  nodeId      String
+  name        String
+  entityType  ExternalEntityType
+  description String?
+  positionX   Float
+  positionY   Float
+
+  dfd               DataFlowDiagram @relation(fields: [dfdId], references: [id], onDelete: Cascade)
+  dfdId             String
+  linkedComponent   Component?      @relation(fields: [linkedComponentId], references: [id], onDelete: SetNull)
+  linkedComponentId String?
+
+  outgoingFlows DFDDataFlow[] @relation("FlowFromEntity")
+  incomingFlows DFDDataFlow[] @relation("FlowToEntity")
+
+  @@unique([dfdId, nodeId])
+  @@map("dfd_external_entities")
+}
+
+enum ExternalEntityType {
+  USER
+  SYSTEM
+  SERVICE
+}
+
+model DFDDataFlow {
+  id        String      @id @default(cuid())
+  edgeId    String
+  number    String?
+  name      String
+  dataTypes String      @default("[]")
+  volume    FlowVolume?
+  frequency String?
+
+  sourceProcessId   String?
+  sourceProcess     DFDProcess?        @relation("FlowSource", fields: [sourceProcessId], references: [id])
+  targetProcessId   String?
+  targetProcess     DFDProcess?        @relation("FlowTarget", fields: [targetProcessId], references: [id])
+  sourceDataStoreId String?
+  sourceDataStore   DFDDataStore?      @relation("FlowFromDataStore", fields: [sourceDataStoreId], references: [id])
+  targetDataStoreId String?
+  targetDataStore   DFDDataStore?      @relation("FlowToDataStore", fields: [targetDataStoreId], references: [id])
+  sourceEntityId    String?
+  sourceEntity      DFDExternalEntity? @relation("FlowFromEntity", fields: [sourceEntityId], references: [id])
+  targetEntityId    String?
+  targetEntity      DFDExternalEntity? @relation("FlowToEntity", fields: [targetEntityId], references: [id])
+
+  dfd               DataFlowDiagram     @relation(fields: [dfdId], references: [id], onDelete: Cascade)
+  dfdId             String
+  linkedUserStories UserStoryDataFlow[]
+
+  @@unique([dfdId, edgeId])
+  @@map("dfd_data_flows")
+}
+
+enum FlowVolume {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model UserStory {
+  id                 String          @id @default(cuid())
+  title              String
+  asA                String
+  iWant              String
+  soThat             String
+  acceptanceCriteria String          @default("[]")
+  status             UserStoryStatus @default(DRAFT)
+  tags               String          @default("[]")
+  externalId         String?
+
+  project   Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  dataFlows UserStoryDataFlow[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("user_stories")
+}
+
+enum UserStoryStatus {
+  DRAFT
+  READY
+  IN_PROGRESS
+  DONE
+}
+
+model UserStoryDataFlow {
+  id String @id @default(cuid())
+
+  userStory   UserStory   @relation(fields: [userStoryId], references: [id], onDelete: Cascade)
+  userStoryId String
+  dataFlow    DFDDataFlow @relation(fields: [dataFlowId], references: [id], onDelete: Cascade)
+  dataFlowId  String
+
+  @@unique([userStoryId, dataFlowId])
+  @@map("user_story_data_flows")
+}

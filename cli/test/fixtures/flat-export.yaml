@@ -1,0 +1,17 @@
+version: '1.0'
+name: "Flat Export"
+components:
+  - id: c1
+    name: "Web"
+    type: SERVICE
+threats:
+  - name: "Token theft"
+    stride: SPOOFING
+    severity: CRITICAL
+    status: OPEN
+    component: c1
+mitigations:
+  - threat: "Token theft"
+    description: "Short-lived tokens"
+    status: NOT_IMPLEMENTED
+    priority: HIGH

@@ -1,0 +1,79 @@
+// =============================================================================
+// CI/CD Integration Models
+// =============================================================================
+
+model CIScan {
+  id String @id @default(cuid())
+
+  threatModel   ThreatModel @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+
+  repositoryId   String
+  prNumber       Int?
+  commitSha      String
+  baseBranch     String?
+  headBranch     String?
+  sourceType     CISourceType @default(GITHUB)
+  failOnSeverity Severity?
+
+  status        CIScanStatus @default(PENDING)
+  findingsCount Int          @default(0)
+  criticalCount Int          @default(0)
+  highCount     Int          @default(0)
+  mediumCount   Int          @default(0)
+  lowCount      Int          @default(0)
+  infoCount     Int          @default(0)
+  findings      String       @default("[]")
+
+  prCommentUrl String?
+  checkRunId   String?
+
+  scanStartedAt   DateTime  @default(now())
+  scanCompletedAt DateTime?
+
+  createdAt     DateTime @default(now())
+  triggeredById String?
+
+  @@index([threatModelId])
+  @@index([repositoryId])
+  @@index([status])
+  @@map("ci_scans")
+}
+
+enum CISourceType {
+  GITHUB
+  GITLAB
+  BITBUCKET
+  AZURE_DEVOPS
+}
+
+enum CIScanStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model CIApiKey {
+  id        String @id @default(cuid())
+  name      String
+  keyHash   String
+  keyPrefix String
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  scopes     String    @default("[\"ci:scan\"]")
+  lastUsedAt DateTime?
+  usageCount Int       @default(0)
+  expiresAt  DateTime?
+  isActive   Boolean   @default(true)
+
+  createdAt   DateTime @default(now())
+  createdById String
+
+  @@index([organizationId])
+  @@index([keyPrefix])
+  @@map("ci_api_keys")
+}

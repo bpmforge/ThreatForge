@@ -1,0 +1,75 @@
+// =============================================================================
+// Sequence Diagram Models
+// =============================================================================
+
+model SequenceDiagram {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  order       Int     @default(0)
+
+  threatModel   ThreatModel           @relation(fields: [threatModelId], references: [id], onDelete: Cascade)
+  threatModelId String
+  participants  SequenceParticipant[]
+  messages      SequenceMessage[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+
+  @@index([threatModelId])
+  @@map("sequence_diagrams")
+}
+
+model SequenceParticipant {
+  id          String  @id @default(cuid())
+  label       String
+  order       Int
+  componentId String?
+
+  sequenceDiagram   SequenceDiagram   @relation(fields: [sequenceDiagramId], references: [id], onDelete: Cascade)
+  sequenceDiagramId String
+  sentMessages      SequenceMessage[] @relation("MessageSender")
+  receivedMessages  SequenceMessage[] @relation("MessageReceiver")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sequenceDiagramId])
+  @@map("sequence_participants")
+}
+
+model SequenceMessage {
+  id             String      @id @default(cuid())
+  label          String
+  order          Int
+  messageType    MessageType @default(SYNC)
+  protocol       Protocol?
+  authentication AuthMethod?
+  isReturn       Boolean     @default(false)
+  notes          String?
+
+  sequenceDiagram   SequenceDiagram     @relation(fields: [sequenceDiagramId], references: [id], onDelete: Cascade)
+  sequenceDiagramId String
+  fromParticipant   SequenceParticipant @relation("MessageSender", fields: [fromId], references: [id], onDelete: Cascade)
+  fromId            String
+  toParticipant     SequenceParticipant @relation("MessageReceiver", fields: [toId], references: [id], onDelete: Cascade)
+  toId              String
+
+  threats String @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sequenceDiagramId])
+  @@map("sequence_messages")
+}
+
+enum MessageType {
+  SYNC
+  ASYNC
+  RETURN
+  SELF
+  CREATE
+  DESTROY
+}

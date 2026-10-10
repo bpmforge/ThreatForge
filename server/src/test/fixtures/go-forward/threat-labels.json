@@ -1,0 +1,786 @@
+{
+  "_README": [
+    "GROUND TRUTH for AI threat quality. One entry per threat the model emitted on the",
+    "go-forward fixture model. Set verdict for each; leave note blank unless useful.",
+    "",
+    "  TRUE_POSITIVE  - a real threat that genuinely applies to this architecture",
+    "  FALSE_POSITIVE - not real, not applicable, or generic boilerplate",
+    "  DUPLICATE      - real, but the same underlying issue as another entry here;",
+    "                   put the key of the entry it duplicates in `duplicateOf`",
+    "",
+    "DUPLICATE is the abstraction-level signal: if ONE mitigation would close both,",
+    "they are one threat. See docs/ui-guide and the findings register.",
+    "",
+    "Unlabelled entries (verdict null) are EXCLUDED from scoring, so partial",
+    "labelling still produces a valid \u2014 just less complete \u2014 precision number."
+  ],
+  "_meta": {
+    "fixture": "go-forward",
+    "totalThreats": 76,
+    "components": 13,
+    "labelledAt": "2026-08-15",
+    "labelledBy": "security review \u2014 labelled against fixture-model.json and the recorded prompts in llm-journal.json"
+  },
+  "threats": [
+    {
+      "key": "comp-api-gateway::DENIAL_OF_SERVICE::exhaustion jwt parsing token",
+      "name": "JWT token parsing exhaustion",
+      "category": "DENIAL_OF_SERVICE",
+      "severity": "CRITICAL",
+      "componentId": "comp-api-gateway",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Rate limiting bounds request count, not per-request parse cost on a malformed token."
+    },
+    {
+      "key": "comp-api-gateway::ELEVATION_OF_PRIVILEGE::admin missing rbac routes",
+      "name": "Missing Role-Based Access Control on Admin Routes",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "severity": "CRITICAL",
+      "componentId": "comp-api-gateway",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Not present in the fixture at all \u2014 generic boilerplate for the component type. No admin route exists in this model."
+    },
+    {
+      "key": "comp-api-gateway::ELEVATION_OF_PRIVILEGE::escalation jwt leading manipulation role token",
+      "name": "JWT Token Manipulation Leading to Role Escalation",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "severity": "CRITICAL",
+      "componentId": "comp-api-gateway",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Representative of the JWT-integrity cluster: the gateway is the single validation choke point."
+    },
+    {
+      "key": "comp-api-gateway::INFORMATION_DISCLOSURE::access jwt logging logs potential token",
+      "name": "Potential logging of JWT tokens in access logs",
+      "category": "INFORMATION_DISCLOSURE",
+      "severity": "CRITICAL",
+      "componentId": "comp-api-gateway",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Bearer tokens in access logs is a real Kong-class gap; no log-redaction control documented."
+    },
+    {
+      "key": "comp-api-gateway::INFORMATION_DISCLOSURE::api core encryption missing request rest transmission",
+      "name": "Unencrypted transmission of API requests to Core REST API",
+      "category": "INFORMATION_DISCLOSURE",
+      "severity": "HIGH",
+      "componentId": "comp-api-gateway",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "The prompt renders encrypted=true for this edge correctly, so this is a model error, not missing context. gateway->core-api is HTTPS, encrypted=true."
+    },
+    {
+      "key": "comp-api-gateway::REPUDIATION::audit failures jwt logging missing validation",
+      "name": "Missing audit logging for JWT validation failures",
+      "category": "REPUDIATION",
+      "severity": "CRITICAL",
+      "componentId": "comp-api-gateway",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-api-gateway::TAMPERING::api injection missing parameter path query request validation",
+      "name": "Request Parameter Injection via Unvalidated API Path/Query",
+      "category": "TAMPERING",
+      "severity": "CRITICAL",
+      "componentId": "comp-api-gateway",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-api-gateway::TAMPERING::bypass jwt signature tampering token",
+      "name": "JWT Token Tampering via Signature Bypass",
+      "category": "TAMPERING",
+      "severity": "CRITICAL",
+      "componentId": "comp-api-gateway",
+      "verdict": "DUPLICATE",
+      "duplicateOf": "comp-api-gateway::ELEVATION_OF_PRIVILEGE::escalation jwt leading manipulation role token",
+      "note": "Correct signature verification with algorithm pinning closes both. Register \u00a75 names this exact pair."
+    },
+    {
+      "key": "comp-auth-service::DENIAL_OF_SERVICE::jwt load malformed token unbounded verification",
+      "name": "Unbounded JWT verification load via malformed tokens",
+      "category": "DENIAL_OF_SERVICE",
+      "severity": "CRITICAL",
+      "componentId": "comp-auth-service",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-auth-service::ELEVATION_OF_PRIVILEGE::account auth full re refresh takeover theft token without",
+      "name": "Refresh Token Theft Enables Full Account Takeover Without Re-authentication",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "severity": "CRITICAL",
+      "componentId": "comp-auth-service",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Token rotation is documented but bounds the window rather than preventing takeover on theft."
+    },
+    {
+      "key": "comp-auth-service::ELEVATION_OF_PRIVILEGE::bypass jose jwt library misconfiguration signature",
+      "name": "JWT Signature Bypass via jose Library Misconfiguration",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "severity": "CRITICAL",
+      "componentId": "comp-auth-service",
+      "verdict": "DUPLICATE",
+      "duplicateOf": "comp-api-gateway::ELEVATION_OF_PRIVILEGE::escalation jwt leading manipulation role token",
+      "note": "Third member of the register \u00a75 JWT cluster \u2014 one signature-verification control closes all three, and they span components so llm-dedup (per-component) cannot see it."
+    },
+    {
+      "key": "comp-auth-service::INFORMATION_DISCLOSURE::cache encryption exposed redis refresh token without",
+      "name": "Refresh tokens exposed in Redis cache without encryption",
+      "category": "INFORMATION_DISCLOSURE",
+      "severity": "CRITICAL",
+      "componentId": "comp-auth-service",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "auth-service->redis is genuinely encrypted=false and carries refresh tokens."
+    },
+    {
+      "key": "comp-auth-service::REPUDIATION::audit issuance jwt logging missing token verification",
+      "name": "Missing audit logging for JWT verification and token issuance",
+      "category": "REPUDIATION",
+      "severity": "CRITICAL",
+      "componentId": "comp-auth-service",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-auth-service::REPUDIATION::auth digital events missing proofing signing tamper",
+      "name": "No digital signing or tamper-proofing of authentication events",
+      "category": "REPUDIATION",
+      "severity": "HIGH",
+      "componentId": "comp-auth-service",
+      "verdict": "DUPLICATE",
+      "duplicateOf": "comp-auth-service::REPUDIATION::audit issuance jwt logging missing token verification",
+      "note": "Tamper-evident audit logging is one control covering both the existence and the integrity of auth events."
+    },
+    {
+      "key": "comp-billing-service::DENIAL_OF_SERVICE::api billing call service stripe unbounded",
+      "name": "Unbounded Stripe API calls from Billing Service",
+      "category": "DENIAL_OF_SERVICE",
+      "severity": "HIGH",
+      "componentId": "comp-billing-service",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-billing-service::ELEVATION_OF_PRIVILEGE::auth channel grpc impersonation internal missing mtls service",
+      "name": "Missing mTLS authentication on internal gRPC channel enables service impersonation",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "severity": "CRITICAL",
+      "componentId": "comp-billing-service",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "P3: the prompt renders auth=none on EVERY edge (verified in llm-journal.json), so the model was told this link is unauthenticated. The fixture declares it otherwise. Real architecture -> false positive; fixing P3 should remove it. core-api->billing-service declares authentication=mTLS."
+    },
+    {
+      "key": "comp-billing-service::INFORMATION_DISCLOSURE::error exposed logs payment response token",
+      "name": "Payment tokens exposed in error responses or logs",
+      "category": "INFORMATION_DISCLOSURE",
+      "severity": "CRITICAL",
+      "componentId": "comp-billing-service",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-billing-service::REPUDIATION::audit charge creation logging missing payment",
+      "name": "Missing audit logging for payment charge creation",
+      "category": "REPUDIATION",
+      "severity": "HIGH",
+      "componentId": "comp-billing-service",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-billing-service::REPUDIATION::billing digital events missing signature",
+      "name": "No digital signature on billing events",
+      "category": "REPUDIATION",
+      "severity": "MEDIUM",
+      "componentId": "comp-billing-service",
+      "verdict": "DUPLICATE",
+      "duplicateOf": "comp-rabbitmq::TAMPERING::integrity message payload protection tampering without",
+      "note": "Message signing on the event bus is one control closing both."
+    },
+    {
+      "key": "comp-billing-service::TAMPERING::grpc input missing payment tampering token validation",
+      "name": "Payment token tampering via unvalidated gRPC input",
+      "category": "TAMPERING",
+      "severity": "CRITICAL",
+      "componentId": "comp-billing-service",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-core-api::DENIAL_OF_SERVICE::abuse exhaustion grpc leading memory message size",
+      "name": "gRPC Message Size Abuse Leading to Memory Exhaustion",
+      "category": "DENIAL_OF_SERVICE",
+      "severity": "CRITICAL",
+      "componentId": "comp-core-api",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-core-api::DENIAL_OF_SERVICE::amplification cache lookup redis unbounded",
+      "name": "Unbounded Redis Cache Lookup Amplification",
+      "category": "DENIAL_OF_SERVICE",
+      "severity": "HIGH",
+      "componentId": "comp-core-api",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-core-api::DENIAL_OF_SERVICE::exhaustion missing rate request restriction",
+      "name": "Unrestricted Request Rate Exhaustion",
+      "category": "DENIAL_OF_SERVICE",
+      "severity": "CRITICAL",
+      "componentId": "comp-core-api",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Contradicted by a documented existingControl on the component. The gateway directly upstream documents rate limiting, and core-api is INTERNAL_ONLY."
+    },
+    {
+      "key": "comp-core-api::ELEVATION_OF_PRIVILEGE::access auth claim manipulation missing redis session",
+      "name": "Unauthenticated Redis Access Enables Session/Claim Manipulation",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "severity": "CRITICAL",
+      "componentId": "comp-core-api",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "P3: the prompt renders auth=none on EVERY edge (verified in llm-journal.json), so the model was told this link is unauthenticated. The fixture declares it otherwise. Real architecture -> false positive; fixing P3 should remove it. core-api->redis declares authentication=API_KEY."
+    },
+    {
+      "key": "comp-core-api::ELEVATION_OF_PRIVILEGE::authz creation endpoint missing order",
+      "name": "Missing Authorization on Order Creation Endpoint",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "severity": "CRITICAL",
+      "componentId": "comp-core-api",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Representative of the order-authorization cluster."
+    },
+    {
+      "key": "comp-core-api::INFORMATION_DISCLOSURE::details error exposing internal response verbose",
+      "name": "Verbose Error Responses Exposing Internal Details",
+      "category": "INFORMATION_DISCLOSURE",
+      "severity": "CRITICAL",
+      "componentId": "comp-core-api",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-core-api::REPUDIATION::audit creation exposure logging missing order pii",
+      "name": "Missing audit logging for order creation with PII exposure",
+      "category": "REPUDIATION",
+      "severity": "CRITICAL",
+      "componentId": "comp-core-api",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Representative of the order audit-logging cluster."
+    },
+    {
+      "key": "comp-core-api::REPUDIATION::billing call missing non repudiation service signing transactions",
+      "name": "No non-repudiation for billing transactions due to unsigned service calls",
+      "category": "REPUDIATION",
+      "severity": "CRITICAL",
+      "componentId": "comp-core-api",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "mTLS on that edge authenticates the channel; it does not give per-transaction non-repudiation, which PCI-DSS scope makes material."
+    },
+    {
+      "key": "comp-core-api::REPUDIATION::claims injection jwt log logs missing validation vulnerability",
+      "name": "Log injection vulnerability via unvalidated JWT claims in logs",
+      "category": "REPUDIATION",
+      "severity": "HIGH",
+      "componentId": "comp-core-api",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-core-api::SPOOFING::api gateway jwt missing spoofing validation",
+      "name": "API Gateway-to-API Spoofing via Missing JWT Validation",
+      "category": "SPOOFING",
+      "severity": "CRITICAL",
+      "componentId": "comp-core-api",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "P3: the prompt renders auth=none on EVERY edge (verified in llm-journal.json), so the model was told this link is unauthenticated. The fixture declares it otherwise. Real architecture -> false positive; fixing P3 should remove it. The edge declares authentication=JWT and the gateway lists 'JWT validation' as an existing control."
+    },
+    {
+      "key": "comp-core-api::SPOOFING::enforcement grpc missing mtls service spoofing",
+      "name": "gRPC Service-to-Service Spoofing via Missing mTLS Enforcement",
+      "category": "SPOOFING",
+      "severity": "CRITICAL",
+      "componentId": "comp-core-api",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "P3: the prompt renders auth=none on EVERY edge (verified in llm-journal.json), so the model was told this link is unauthenticated. The fixture declares it otherwise. Real architecture -> false positive; fixing P3 should remove it. All three core-api->service edges declare authentication=mTLS."
+    },
+    {
+      "key": "comp-core-api::TAMPERING::data fields input missing order validation",
+      "name": "Missing Input Validation on Order Data Fields",
+      "category": "TAMPERING",
+      "severity": "CRITICAL",
+      "componentId": "comp-core-api",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-email-provider::ELEVATION_OF_PRIVILEGE::api authz key missing sendgrid usage",
+      "name": "Missing Authorization on SendGrid API Key Usage",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "severity": "CRITICAL",
+      "componentId": "comp-email-provider",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "P3: the prompt renders auth=none on EVERY edge (verified in llm-journal.json), so the model was told this link is unauthenticated. The fixture declares it otherwise. Real architecture -> false positive; fixing P3 should remove it. The edge declares authentication=API_KEY; the threat restates its absence."
+    },
+    {
+      "key": "comp-email-provider::ELEVATION_OF_PRIVILEGE::email missing rbac templates",
+      "name": "Lack of Role-Based Access Control for Email Templates",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "severity": "MEDIUM",
+      "componentId": "comp-email-provider",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Not present in the fixture at all \u2014 generic boilerplate for the component type. No template system exists in this model."
+    },
+    {
+      "key": "comp-email-provider::REPUDIATION::api call core missing non repudiation rest sendgrid",
+      "name": "Missing non-repudiation for SendGrid API calls from Core REST API",
+      "category": "REPUDIATION",
+      "severity": "HIGH",
+      "componentId": "comp-email-provider",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-email-provider::TAMPERING::api content email input tampering unsanitized",
+      "name": "Email content tampering via unsanitized API input",
+      "category": "TAMPERING",
+      "severity": "HIGH",
+      "componentId": "comp-email-provider",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Header/content injection into transactional mail is real and specific."
+    },
+    {
+      "key": "comp-end-user::ELEVATION_OF_PRIVILEGE::abuse auth checkout form hijacking missing session",
+      "name": "Missing authentication on checkout form enables session hijacking abuse",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "severity": "HIGH",
+      "componentId": "comp-end-user",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "The end-user->portal edge genuinely declares authentication=None."
+    },
+    {
+      "key": "comp-end-user::REPUDIATION::checkout form missing non repudiation submission",
+      "name": "Lack of non-repudiation for checkout form submission",
+      "category": "REPUDIATION",
+      "severity": "HIGH",
+      "componentId": "comp-end-user",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-end-user::TAMPERING::check form input integrity tampering without",
+      "name": "Form input tampering without integrity checks",
+      "category": "TAMPERING",
+      "severity": "CRITICAL",
+      "componentId": "comp-end-user",
+      "verdict": "DUPLICATE",
+      "duplicateOf": "comp-web-portal::TAMPERING::checkout form leading manipulation order parameter price tampering",
+      "note": "Server-side validation with server-authoritative pricing closes both."
+    },
+    {
+      "key": "comp-order-service::DENIAL_OF_SERVICE::broker causing message overload publishing rabbitmq uncontrolled",
+      "name": "Uncontrolled RabbitMQ message publishing causing broker overload",
+      "category": "DENIAL_OF_SERVICE",
+      "severity": "MEDIUM",
+      "componentId": "comp-order-service",
+      "verdict": "DUPLICATE",
+      "duplicateOf": "comp-rabbitmq::DENIAL_OF_SERVICE::limiting message publishing rate unbounded without",
+      "note": "Publish rate limiting closes both; same flow seen from each end."
+    },
+    {
+      "key": "comp-order-service::DENIAL_OF_SERVICE::connections exhausting insertion order postgresql record unbounded",
+      "name": "Unbounded order record insertion exhausting PostgreSQL connections",
+      "category": "DENIAL_OF_SERVICE",
+      "severity": "HIGH",
+      "componentId": "comp-order-service",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-order-service::ELEVATION_OF_PRIVILEGE::authz creation grpc missing order",
+      "name": "Missing Authorization on Order Creation via gRPC",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "severity": "HIGH",
+      "componentId": "comp-order-service",
+      "verdict": "DUPLICATE",
+      "duplicateOf": "comp-core-api::ELEVATION_OF_PRIVILEGE::authz creation endpoint missing order",
+      "note": "One authorization control on order creation closes both."
+    },
+    {
+      "key": "comp-order-service::INFORMATION_DISCLOSURE::data encryption logs missing postgresql sensitive",
+      "name": "Unencrypted sensitive data in PostgreSQL logs",
+      "category": "INFORMATION_DISCLOSURE",
+      "severity": "HIGH",
+      "componentId": "comp-order-service",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-order-service::INFORMATION_DISCLOSURE::error grpc internal leaking response structure verbose",
+      "name": "Verbose gRPC error responses leaking internal structure",
+      "category": "INFORMATION_DISCLOSURE",
+      "severity": "MEDIUM",
+      "componentId": "comp-order-service",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-order-service::REPUDIATION::audit creation events logging missing order",
+      "name": "Missing audit logging for order creation events",
+      "category": "REPUDIATION",
+      "severity": "HIGH",
+      "componentId": "comp-order-service",
+      "verdict": "DUPLICATE",
+      "duplicateOf": "comp-core-api::REPUDIATION::audit creation exposure logging missing order pii",
+      "note": "One audit-logging control on the order-creation path closes both."
+    },
+    {
+      "key": "comp-order-service::SPOOFING::api core enforced grpc mtls not order rest service",
+      "name": "gRPC mTLS not enforced for Core REST API \u2192 Order Service",
+      "category": "SPOOFING",
+      "severity": "CRITICAL",
+      "componentId": "comp-order-service",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "P3: the prompt renders auth=none on EVERY edge (verified in llm-journal.json), so the model was told this link is unauthenticated. The fixture declares it otherwise. Real architecture -> false positive; fixing P3 should remove it. core-api->order-service declares authentication=mTLS."
+    },
+    {
+      "key": "comp-order-service::TAMPERING::fields injection order record sql",
+      "name": "SQL Injection via Order Record Fields",
+      "category": "TAMPERING",
+      "severity": "CRITICAL",
+      "componentId": "comp-order-service",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Representative of the SQL-injection-on-order-write cluster."
+    },
+    {
+      "key": "comp-payment-gateway::ELEVATION_OF_PRIVILEGE::authz charge creation missing",
+      "name": "Missing Authorization on Charge Creation",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "severity": "CRITICAL",
+      "componentId": "comp-payment-gateway",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Who may create a charge is an application-side authorization question the model does not answer."
+    },
+    {
+      "key": "comp-payment-gateway::INFORMATION_DISCLOSURE::data encryption missing payment rest sensitive transit",
+      "name": "Unencrypted sensitive payment data in transit or at rest",
+      "category": "INFORMATION_DISCLOSURE",
+      "severity": "HIGH",
+      "componentId": "comp-payment-gateway",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "The prompt renders encrypted=true for this edge correctly, so this is a model error, not missing context. billing->stripe is HTTPS encrypted=true, and the data is explicitly tokenized card data."
+    },
+    {
+      "key": "comp-postgres::ELEVATION_OF_PRIVILEGE::account order over privileged service",
+      "name": "Over-privileged service account for Order Service",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "severity": "CRITICAL",
+      "componentId": "comp-postgres",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Contradicted by a documented existingControl on the component. 'least-privilege roles' is a documented existingControl."
+    },
+    {
+      "key": "comp-postgres::REPUDIATION::audit insertions level logging missing order transaction",
+      "name": "Missing transaction-level audit logging for order insertions",
+      "category": "REPUDIATION",
+      "severity": "CRITICAL",
+      "componentId": "comp-postgres",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-postgres::SPOOFING::auth basic credential interception tls without",
+      "name": "Basic Auth without TLS exposes credentials to interception",
+      "category": "SPOOFING",
+      "severity": "CRITICAL",
+      "componentId": "comp-postgres",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "The underlying class (static Basic credentials on RESTRICTED data) is real and is an enabled recall expectation \u2014 but this finding's stated premise, 'without TLS', is false: all three Postgres edges are encrypted=true. The prompt renders encrypted=true for this edge correctly, so this is a model error, not missing context. Scored wrong as written; the right threat is reachable and should replace it."
+    },
+    {
+      "key": "comp-postgres::TAMPERING::injection insert order service sql",
+      "name": "SQL Injection via Order Service INSERT",
+      "category": "TAMPERING",
+      "severity": "CRITICAL",
+      "componentId": "comp-postgres",
+      "verdict": "DUPLICATE",
+      "duplicateOf": "comp-order-service::TAMPERING::fields injection order record sql",
+      "note": "One parameterized-query fix closes both; same write path seen from each end."
+    },
+    {
+      "key": "comp-rabbitmq::DENIAL_OF_SERVICE::breakers circuit consumers downstream missing queue",
+      "name": "Missing circuit breakers for downstream queue consumers",
+      "category": "DENIAL_OF_SERVICE",
+      "severity": "MEDIUM",
+      "componentId": "comp-rabbitmq",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-rabbitmq::DENIAL_OF_SERVICE::limiting message publishing rate unbounded without",
+      "name": "Unbounded message publishing without rate limiting",
+      "category": "DENIAL_OF_SERVICE",
+      "severity": "HIGH",
+      "componentId": "comp-rabbitmq",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Representative of the publish-flooding cluster."
+    },
+    {
+      "key": "comp-rabbitmq::ELEVATION_OF_PRIVILEGE::amqp auth authz missing publishing queue",
+      "name": "Missing AMQP authentication enables unauthorized queue publishing",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "severity": "HIGH",
+      "componentId": "comp-rabbitmq",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "P3: the prompt renders auth=none on EVERY edge (verified in llm-journal.json), so the model was told this link is unauthenticated. The fixture declares it otherwise. Real architecture -> false positive; fixing P3 should remove it. Both AMQP edges declare authentication=Basic."
+    },
+    {
+      "key": "comp-rabbitmq::INFORMATION_DISCLOSURE::access controls exposed internally management rabbitmq ui without",
+      "name": "RabbitMQ Management UI Exposed Internally Without Access Controls",
+      "category": "INFORMATION_DISCLOSURE",
+      "severity": "MEDIUM",
+      "componentId": "comp-rabbitmq",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Not present in the fixture at all \u2014 generic boilerplate for the component type. The management UI is not part of this model."
+    },
+    {
+      "key": "comp-rabbitmq::INFORMATION_DISCLOSURE::amqp credential encryption missing transit",
+      "name": "Unencrypted AMQP Credentials in Transit",
+      "category": "INFORMATION_DISCLOSURE",
+      "severity": "MEDIUM",
+      "componentId": "comp-rabbitmq",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "The prompt renders encrypted=true for this edge correctly, so this is a model error, not missing context. Both AMQP edges are encrypted=true."
+    },
+    {
+      "key": "comp-rabbitmq::REPUDIATION::audit billing event logging missing order publishing",
+      "name": "Missing audit logging for order and billing event publishing",
+      "category": "REPUDIATION",
+      "severity": "HIGH",
+      "componentId": "comp-rabbitmq",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-rabbitmq::SPOOFING::amqp binding client identity missing publish",
+      "name": "Missing client identity binding in AMQP publish",
+      "category": "SPOOFING",
+      "severity": "HIGH",
+      "componentId": "comp-rabbitmq",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Distinct from the auth question: shared Basic credentials give no per-publisher identity binding, so this survives even with auth present."
+    },
+    {
+      "key": "comp-rabbitmq::TAMPERING::integrity message payload protection tampering without",
+      "name": "Message payload tampering without integrity protection",
+      "category": "TAMPERING",
+      "severity": "HIGH",
+      "componentId": "comp-rabbitmq",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Representative of the message-signing cluster."
+    },
+    {
+      "key": "comp-redis::DENIAL_OF_SERVICE::auth exhaustion instance missing queries redis resource unbounded",
+      "name": "Unauthenticated Redis instance vulnerable to resource exhaustion via unbounded queries",
+      "category": "DENIAL_OF_SERVICE",
+      "severity": "CRITICAL",
+      "componentId": "comp-redis",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "P3: the prompt renders auth=none on EVERY edge (verified in llm-journal.json), so the model was told this link is unauthenticated. The fixture declares it otherwise. Real architecture -> false positive; fixing P3 should remove it. Both Redis edges declare authentication=API_KEY."
+    },
+    {
+      "key": "comp-redis::INFORMATION_DISCLOSURE::cached catalog data encryption missing rest",
+      "name": "Unencrypted Cached Catalog Data at Rest",
+      "category": "INFORMATION_DISCLOSURE",
+      "severity": "MEDIUM",
+      "componentId": "comp-redis",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "At-rest encryption is genuinely undocumented for Redis \u2014 a distinct claim from the transit flags."
+    },
+    {
+      "key": "comp-redis::INFORMATION_DISCLOSURE::encryption missing session token transit",
+      "name": "Unencrypted Session Tokens in Transit",
+      "category": "INFORMATION_DISCLOSURE",
+      "severity": "HIGH",
+      "componentId": "comp-redis",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Both Redis edges are genuinely encrypted=false and carry session tokens."
+    },
+    {
+      "key": "comp-redis::REPUDIATION::audit logging missing operations redis session token",
+      "name": "No audit logging for session token operations in Redis",
+      "category": "REPUDIATION",
+      "severity": "HIGH",
+      "componentId": "comp-redis",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-redis::REPUDIATION::cached catalog data missing modifications timestamping",
+      "name": "Missing timestamping for cached catalog data modifications",
+      "category": "REPUDIATION",
+      "severity": "MEDIUM",
+      "componentId": "comp-redis",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Timestamping cache writes of PUBLIC catalog data is not a security control \u2014 boilerplate reaching for a REPUDIATION entry."
+    },
+    {
+      "key": "comp-redis::SPOOFING::auth cache exposed redis session spoofing token without",
+      "name": "Redis cache exposed without authentication enables session token spoofing",
+      "category": "SPOOFING",
+      "severity": "CRITICAL",
+      "componentId": "comp-redis",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "P3: the prompt renders auth=none on EVERY edge (verified in llm-journal.json), so the model was told this link is unauthenticated. The fixture declares it otherwise. Real architecture -> false positive; fixing P3 should remove it. Both Redis edges declare authentication=API_KEY."
+    },
+    {
+      "key": "comp-redis::TAMPERING::auth cache missing poisoning redis writes",
+      "name": "Cache poisoning via unauthenticated Redis writes",
+      "category": "TAMPERING",
+      "severity": "CRITICAL",
+      "componentId": "comp-redis",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "P3: the prompt renders auth=none on EVERY edge (verified in llm-journal.json), so the model was told this link is unauthenticated. The fixture declares it otherwise. Real architecture -> false positive; fixing P3 should remove it. Same premise: 'unauthenticated writes' contradicts authentication=API_KEY."
+    },
+    {
+      "key": "comp-web-portal::DENIAL_OF_SERVICE::cart checkout event js loop node overwhelming request unbounded volume",
+      "name": "Unbounded cart/checkout request volume overwhelming Node.js event loop",
+      "category": "DENIAL_OF_SERVICE",
+      "severity": "CRITICAL",
+      "componentId": "comp-web-portal",
+      "verdict": "FALSE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Contradicted by a documented existingControl on the component. 'rate limiting' and 'WAF' are documented existingControls on this component."
+    },
+    {
+      "key": "comp-web-portal::INFORMATION_DISCLOSURE::api cart contents error gateway leaked response verbose",
+      "name": "Cart contents leaked via verbose error responses from API Gateway",
+      "category": "INFORMATION_DISCLOSURE",
+      "severity": "HIGH",
+      "componentId": "comp-web-portal",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-web-portal::INFORMATION_DISCLOSURE::api client exposed javascript js next routes session side token",
+      "name": "Session tokens exposed in client-side JavaScript via Next.js API routes",
+      "category": "INFORMATION_DISCLOSURE",
+      "severity": "CRITICAL",
+      "componentId": "comp-web-portal",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Specific to Next.js and to the declared 'session tokens' dataType."
+    },
+    {
+      "key": "comp-web-portal::REPUDIATION::actions audit checkout logging missing",
+      "name": "Missing audit logging for checkout actions",
+      "category": "REPUDIATION",
+      "severity": "CRITICAL",
+      "componentId": "comp-web-portal",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": ""
+    },
+    {
+      "key": "comp-web-portal::SPOOFING::auth checkout endpoint jwt missing replay token",
+      "name": "JWT token replay via unauthenticated checkout endpoint",
+      "category": "SPOOFING",
+      "severity": "CRITICAL",
+      "componentId": "comp-web-portal",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "The end-user edge genuinely declares authentication=None."
+    },
+    {
+      "key": "comp-web-portal::TAMPERING::checkout form leading manipulation order parameter price tampering",
+      "name": "Checkout form parameter tampering leading to order price manipulation",
+      "category": "TAMPERING",
+      "severity": "CRITICAL",
+      "componentId": "comp-web-portal",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Representative of the checkout-tampering cluster."
+    },
+    {
+      "key": "compound::DENIAL_OF_SERVICE::auth charge checkout denial flooding missing service",
+      "name": "Denial-of-Service via Unauthenticated Checkout + Charge Flooding",
+      "category": "DENIAL_OF_SERVICE",
+      "severity": "CRITICAL",
+      "componentId": "compound",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "Genuine cross-component chain: anonymous checkout (auth=None) into unbounded Stripe charge creation."
+    },
+    {
+      "key": "compound::ELEVATION_OF_PRIVILEGE::charge forgery hijacking missing session validation webhook",
+      "name": "Session Hijacking + Charge Forgery via Unvalidated Webhook",
+      "category": "ELEVATION_OF_PRIVILEGE",
+      "severity": "CRITICAL",
+      "componentId": "compound",
+      "verdict": "TRUE_POSITIVE",
+      "duplicateOf": null,
+      "note": "The webhook half is correct and is the only place unverified Stripe callbacks surface \u2014 it is an enabled recall expectation on comp-billing-service, where the mitigation would live."
+    }
+  ]
+}

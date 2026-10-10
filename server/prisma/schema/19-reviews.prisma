@@ -1,0 +1,151 @@
+// =============================================================================
+// Security Review Workflow Models
+// =============================================================================
+
+model ReviewRequest {
+  id              String    @id @default(cuid())
+  threatModelId   String
+  threatModelName String
+  version         Int
+  status          String    @default("PENDING_REVIEW")
+  requestedById   String
+  requestedByName String
+  requestedAt     DateTime  @default(now())
+  dueDate         DateTime?
+  priority        String    @default("NORMAL")
+  reviewType      String    @default("INITIAL")
+  description     String?
+  scope           String?
+  signOffRequired Boolean   @default(false)
+  checklist       String    @default("[]")
+  metadata        String?
+  completedAt     DateTime?
+
+  assignments ReviewAssignment[]
+  comments    ReviewComment[]
+  signOff     ReviewSignOff?
+  activities  ReviewActivity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([threatModelId])
+  @@index([requestedById])
+  @@index([status])
+  @@index([dueDate])
+  @@map("review_requests")
+}
+
+model ReviewAssignment {
+  id              String        @id @default(cuid())
+  reviewRequestId String
+  reviewRequest   ReviewRequest @relation(fields: [reviewRequestId], references: [id], onDelete: Cascade)
+  userId          String
+  userName        String
+  userEmail       String
+  role            String        @default("REVIEWER")
+  status          String        @default("PENDING")
+  decision        String?
+  decisionAt      DateTime?
+  comments        String?
+  required        Boolean       @default(true)
+  notifiedAt      DateTime?
+  assignedAt      DateTime      @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([reviewRequestId, userId])
+  @@index([reviewRequestId])
+  @@index([userId])
+  @@index([status])
+  @@map("review_assignments")
+}
+
+model ReviewComment {
+  id                 String        @id @default(cuid())
+  reviewRequestId    String
+  reviewRequest      ReviewRequest @relation(fields: [reviewRequestId], references: [id], onDelete: Cascade)
+  userId             String
+  userName           String
+  content            String
+  category           String?
+  referencedItemType String?
+  referencedItemId   String?
+  isResolved         Boolean       @default(false)
+  resolvedById       String?
+  resolvedAt         DateTime?
+  parentCommentId    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reviewRequestId])
+  @@index([userId])
+  @@index([isResolved])
+  @@map("review_comments")
+}
+
+model ReviewSignOff {
+  id              String        @id @default(cuid())
+  reviewRequestId String        @unique
+  reviewRequest   ReviewRequest @relation(fields: [reviewRequestId], references: [id], onDelete: Cascade)
+  signedOffById   String
+  signedOffByName String
+  signedOffAt     DateTime      @default(now())
+  signature       String?
+  statement       String
+  expiresAt       DateTime?
+  metadata        String?
+
+  createdAt DateTime @default(now())
+
+  @@index([signedOffById])
+  @@map("review_sign_offs")
+}
+
+model ReviewActivity {
+  id              String        @id @default(cuid())
+  reviewRequestId String
+  reviewRequest   ReviewRequest @relation(fields: [reviewRequestId], references: [id], onDelete: Cascade)
+  userId          String?
+  userName        String?
+  action          String
+  details         String?
+
+  createdAt DateTime @default(now())
+
+  @@index([reviewRequestId])
+  @@index([createdAt])
+  @@map("review_activities")
+}
+
+model ReviewWorkflowConfig {
+  id             String  @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  isDefault      Boolean @default(false)
+  isActive       Boolean @default(true)
+
+  minimumReviewers    Int     @default(1)
+  requireSecurityLead Boolean @default(false)
+  requireSignOff      Boolean @default(false)
+
+  defaultDueDays Int    @default(7)
+  reminderDays   String @default("[3, 1]")
+  escalationDays Int?
+
+  autoApproveIfAllPass Boolean @default(false)
+  autoCloseOnReject    Boolean @default(true)
+
+  checklistTemplate String @default("[]")
+  criteria          String @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("review_workflow_configs")
+}

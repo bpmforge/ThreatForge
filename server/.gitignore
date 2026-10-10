@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Environment variables (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+prisma/dev.db*
+
+# Generated Prisma client
+/src/generated/prisma
+
+# Backup / temp files
+*.bak
+*.orig
+*.tmp
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Key / cert files
+*.pem
+*.key
+*.p12
+*.pfx

@@ -1,0 +1,94 @@
+// =============================================================================
+// Library Sharing & Marketplace Models
+// =============================================================================
+
+model LibraryPublication {
+  id          String      @id @default(cuid())
+  libraryType LibraryType
+  libraryId   String
+
+  sourceOrgId String
+  sourceOrg   Organization @relation("PublishedFrom", fields: [sourceOrgId], references: [id], onDelete: Cascade)
+
+  targetOrgId String?
+  targetOrg   Organization? @relation("PublishedTo", fields: [targetOrgId], references: [id], onDelete: Cascade)
+
+  status    PublicationStatus @default(PENDING)
+  version   String
+  changelog String?
+
+  requestedById   String
+  requestedAt     DateTime  @default(now())
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectedById    String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sourceOrgId])
+  @@index([targetOrgId])
+  @@index([libraryType, libraryId])
+  @@map("library_publications")
+}
+
+model LibrarySubscription {
+  id                String       @id @default(cuid())
+  subscriberOrgId   String
+  subscriberOrg     Organization @relation(fields: [subscriberOrgId], references: [id], onDelete: Cascade)
+  libraryType       LibraryType
+  libraryId         String
+  autoUpdate        Boolean      @default(true)
+  lastSyncedAt      DateTime?
+  lastSyncedVersion String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([subscriberOrgId, libraryType, libraryId])
+  @@index([subscriberOrgId])
+  @@map("library_subscriptions")
+}
+
+model LibraryUsageEvent {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  libraryType    LibraryType
+  libraryId      String
+  templateId     String?
+  eventType      UsageEventType
+  metadata       String         @default("{}")
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([libraryType, libraryId])
+  @@map("library_usage_events")
+}
+
+enum LibraryType {
+  THREAT_LIBRARY
+  MITIGATION_LIBRARY
+  COMPONENT_TEMPLATE_LIBRARY
+  MODEL_TEMPLATE
+}
+
+enum PublicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVOKED
+}
+
+enum UsageEventType {
+  VIEW
+  CLONE
+  APPLY
+  EXPORT
+  SHARE
+}

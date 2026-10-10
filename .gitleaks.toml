@@ -1,0 +1,41 @@
+# gitleaks config — the default ruleset plus value-pinned allowlists for test
+# fixtures that still exist at HEAD. History-only false positives live in
+# .gitleaksignore (fingerprints). Each entry pins BOTH the file and the exact
+# fake value (condition = "AND"), so a real secret added to the same file is
+# still reported.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "gitleaks' own config: it quotes the fake values it allowlists"
+paths = ['''^\.gitleaks\.toml$''', '''^\.gitleaksignore$''']
+
+[[allowlists]]
+description = "field-encryption.test.ts: hard-coded AES test key (TEST_KEY)"
+condition = "AND"
+paths = ['''^server/src/middleware/field-encryption\.test\.ts$''']
+regexes = ['''^3Q74kNaVKre99og6N3QtodFKJQ\+rw0hBj0k/4MbvII4=$''']
+
+[[allowlists]]
+description = "settings.test.ts: fake provider key"
+condition = "AND"
+paths = ['''^server/src/api/__tests__/settings\.test\.ts$''']
+regexes = ['''^sk-1234567890abcdef$''']
+
+[[allowlists]]
+description = "auth-public.test.ts: test password"
+condition = "AND"
+paths = ['''^server/src/api/__tests__/auth-public\.test\.ts$''']
+regexes = ['''^NewStrongPass123$''']
+
+[[allowlists]]
+description = "API docs: truncated example JWT"
+condition = "AND"
+paths = ['''^docs/.*\.md$''']
+regexes = ['''^eyJhbGciOiJIUzI1NiIs\.\.\.$''']
+
+[[allowlists]]
+description = "LLM journal fixture: prose matched as API_KEY -> <text>"
+condition = "AND"
+paths = ['''^server/src/test/fixtures/go-forward/llm-journal\.json$''']
+regexes = ['''^Intercepts/modifies$''']

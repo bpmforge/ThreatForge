@@ -1,0 +1,22 @@
+name: ThreatForge Threat Scan
+description: Scans a threatforge.yaml and comments on the PR with threat changes
+
+inputs:
+  api-url:
+    description: ThreatForge API base URL
+    required: true
+  api-token:
+    description: ThreatForge API token (ftm_...)
+    required: true
+  threatmodel-path:
+    description: Path to the threatforge.yaml file
+    required: false
+    default: threatforge.yaml
+  github-token:
+    description: GitHub token for posting PR comments
+    required: true
+    default: ${{ github.token }}
+
+runs:
+  using: node20
+  main: index.js

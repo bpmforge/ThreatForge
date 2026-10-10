@@ -1,0 +1,118 @@
+// =============================================================================
+// Extension Registry (Plugin System) Models
+// =============================================================================
+// UNUSED since 2026-10-07: the extensions feature (routes, dispatcher, UI) was
+// removed. These models and their tables are kept only to avoid a destructive
+// migration; nothing reads or writes them. Drop in a deliberate migration.
+
+model Extension {
+  id String @id @default(cuid())
+
+  slug        String  @unique
+  name        String
+  description String?
+  version     String  @default("1.0.0")
+  author      String?
+  authorUrl   String?
+  iconUrl     String?
+
+  type             ExtensionType
+  capabilities     String        @default("[]")
+  configSchema     String?
+  endpoints        String        @default("{}")
+  uiSlots          String        @default("[]")
+  uiConfig         String?
+  actions          String        @default("[]")
+  subscribedEvents String        @default("[]")
+
+  isVerified      Boolean @default(false)
+  isPublic        Boolean @default(false)
+  isCoreExtension Boolean @default(false)
+  createdByOrgId  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  installations ExtensionInstall[]
+
+  @@index([type])
+  @@index([isPublic])
+  @@index([createdByOrgId])
+  @@map("extensions")
+}
+
+model ExtensionInstall {
+  id             String       @id @default(cuid())
+  extensionId    String
+  extension      Extension    @relation(fields: [extensionId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  status        ExtensionInstallStatus @default(ACTIVE)
+  config        String?
+  credentials   String?
+  webhookSecret String?
+  permissions   String                 @default("[]")
+
+  lastEventAt       DateTime?
+  lastEventStatus   String?
+  errorCount        Int       @default(0)
+  lastError         String?
+  consecutiveErrors Int       @default(0)
+
+  installedById String
+  installedAt   DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([extensionId, organizationId])
+  @@index([organizationId])
+  @@index([status])
+  @@map("extension_installs")
+}
+
+model ExtensionEventLog {
+  id             String @id @default(cuid())
+  installId      String
+  extensionId    String
+  organizationId String
+
+  eventType String
+  payload   String
+
+  status        ExtensionEventStatus @default(PENDING)
+  attempts      Int                  @default(0)
+  lastAttemptAt DateTime?
+  nextRetryAt   DateTime?
+
+  responseStatus Int?
+  responseBody   String?
+  errorMessage   String?
+
+  createdAt   DateTime  @default(now())
+  deliveredAt DateTime?
+
+  @@index([installId, createdAt])
+  @@index([status, nextRetryAt])
+  @@map("extension_event_logs")
+}
+
+enum ExtensionType {
+  INTEGRATION
+  UI_PANEL
+  ACTION
+  COMPOSITE
+}
+
+enum ExtensionInstallStatus {
+  ACTIVE
+  PAUSED
+  ERROR
+  UNINSTALLING
+}
+
+enum ExtensionEventStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  RETRYING
+}

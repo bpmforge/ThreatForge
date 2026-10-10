@@ -1,0 +1,19 @@
+// =============================================================================
+// ThreatComment Model
+// =============================================================================
+
+model ThreatComment {
+  id        String   @id @default(cuid())
+  body      String
+  threatId  String
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  threat  Threat @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  author  User   @relation("ThreatCommentAuthor", fields: [authorId], references: [id])
+
+  @@index([threatId])
+  @@index([authorId])
+  @@map("threat_comments")
+}

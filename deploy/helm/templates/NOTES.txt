@@ -1,0 +1,39 @@
+ThreatForge has been deployed!
+
+1. Get the application URL:
+{{- if .Values.ingress.enabled }}
+  https://{{ .Values.ingress.host }}
+
+  Make sure your DNS record for {{ .Values.ingress.host }} points to the ingress
+  controller's external IP:
+
+    kubectl get ingress {{ include "threatforge.fullname" . }} \
+      --namespace {{ .Release.Namespace }} \
+      -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+
+{{- else }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} \
+    -l "{{ include "threatforge.selectorLabels" . }},app.kubernetes.io/component=frontend" \
+    -o jsonpath="{.items[0].metadata.name}")
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 3000:3000
+  Then visit: http://localhost:3000
+{{- end }}
+
+2. First-time setup (run once after the server pod is Ready):
+
+  SERVER_POD=$(kubectl get pods --namespace {{ .Release.Namespace }} \
+    -l "{{ include "threatforge.selectorLabels" . }},app.kubernetes.io/component=server" \
+    -o jsonpath="{.items[0].metadata.name}")
+
+  kubectl exec --namespace {{ .Release.Namespace }} -it $SERVER_POD -- \
+    npm run setup:cli -- \
+      --admin-email admin@example.com \
+      --admin-password "ChangeMe123!" \
+      --admin-name "Admin User" \
+      --org-name "My Organization" \
+      --org-slug my-organization
+
+3. Documentation:
+   - Helm chart README:  deploy/helm/README.md
+   - Full docs:          https://github.com/bpmforge/ThreatForge/tree/main/docs
+   - API reference:      https://{{ if .Values.ingress.enabled }}{{ .Values.ingress.host }}{{ else }}<host>{{ end }}/docs

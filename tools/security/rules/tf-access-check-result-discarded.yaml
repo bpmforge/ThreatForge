@@ -1,0 +1,25 @@
+rules:
+  - id: tf-access-check-result-discarded
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >
+      The result of an access check is thrown away. canAccessThreatModel,
+      checkThreatModelAccess and canPerformAction RETURN a decision; they do not
+      throw or reply 403 on their own. Called as a bare statement, the route
+      carries on and serves the data to anyone with a session. Use the result:
+      `if (!(await canAccessThreatModel(user.id, id))) return reply.status(403)...`
+    # Why a regex and not an AST pattern: opengrep treats `await f(...);` as an
+    # expression pattern, so it also matches `const ok = await f(...)`; and the
+    # AST "call not consumed" form (pattern-not-inside for every consumer)
+    # suppressed the real bug, because a route body is itself an argument of
+    # fastify.get(...). Both were checked against fixtures/ and against the
+    # pre-fix gap-analysis.ts. This regex anchors the call at the START of a
+    # statement line and requires `;` right after its balanced argument list:
+    # that is exactly an expression statement whose value nobody reads.
+    pattern-regex: '(?m)^[ \t]*(?:await[ \t]+|void[ \t]+)?(?:canAccessThreatModel|checkThreatModelAccess|canPerformAction)[ \t]*(?<args>\((?:[^()]++|(?&args))*\))[ \t]*;'
+    metadata:
+      cwe: [862]
+      confidence: high
+      # Real instances: server/src/api/threat-models/routes/gap-analysis.ts and
+      # scan-code.ts called `await canAccessThreatModel(...);` and ignored it
+      # (fixed in b9f85277). Any model's gap analysis was readable cross-tenant.

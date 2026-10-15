@@ -27,6 +27,9 @@ All notable changes to ThreatForge are recorded here. The format follows
   current UI (setup wizard over new models, the new-model chooser, renamed
   settings) and API (422 for validation, `{ data }` envelopes), and canvas
   tests hung until the 30-minute job limit.
+- **The Guided Threat Model Setup wizard did not fit short screens.** On a
+  720px-tall window its buttons, including Skip Wizard, sat below the edge with
+  no way to scroll to them. The dialog now scrolls.
 
 ### Documentation
 - README: screenshots, a 60-second Docker quickstart, and an accurate

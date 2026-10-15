@@ -204,6 +204,7 @@ export class ApiTestHelper {
   }
 
   // ============ Project Methods ============
+  // Single-entity responses come wrapped as { data } (sendSuccess/sendCreated).
 
   /**
    * Get user's projects
@@ -216,7 +217,8 @@ export class ApiTestHelper {
    * Get a specific project
    */
   async getProject(id: string): Promise<Project> {
-    return this.get(`/api/projects/${id}`);
+    const res = await this.get<{ data: Project }>(`/api/projects/${id}`);
+    return res.data;
   }
 
   /**
@@ -226,7 +228,11 @@ export class ApiTestHelper {
     name: string,
     options?: { description?: string; organizationId?: string },
   ): Promise<Project> {
-    return this.post("/api/projects", { name, ...options });
+    const res = await this.post<{ data: Project }>("/api/projects", {
+      name,
+      ...options,
+    });
+    return res.data;
   }
 
   /**
@@ -252,7 +258,10 @@ export class ApiTestHelper {
    * Get a specific threat model with full data
    */
   async getThreatModel(id: string): Promise<ThreatModel> {
-    return this.get(`/api/threat-models/${id}`);
+    const res = await this.get<{ data: ThreatModel }>(
+      `/api/threat-models/${id}`,
+    );
+    return res.data;
   }
 
   /**
@@ -262,7 +271,11 @@ export class ApiTestHelper {
     name: string,
     options?: { projectId?: string; canvasState?: unknown },
   ): Promise<ThreatModel> {
-    return this.post("/api/threat-models", { name, ...options });
+    const res = await this.post<{ data: ThreatModel }>("/api/threat-models", {
+      name,
+      ...options,
+    });
+    return res.data;
   }
 
   /**

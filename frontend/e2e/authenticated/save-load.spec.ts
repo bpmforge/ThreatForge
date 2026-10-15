@@ -1,4 +1,8 @@
 import { test, expect, skipIfNotAuthenticated } from "../fixtures/auth";
+import {
+  dismissGuidedWizard,
+  EMPTY_CANVAS_DROP_Y,
+} from "../fixtures/test-helpers";
 
 /**
  * Save/Load E2E Tests
@@ -69,6 +73,7 @@ test.describe("Save and Load Canvas State", () => {
     // Step 2: Wait for canvas to load
     console.log("Step 2: Waiting for canvas...");
     await page.waitForSelector(".react-flow", { timeout: 20000 });
+    await dismissGuidedWizard(page);
     await page.waitForTimeout(2000); // Let React Flow fully initialize
 
     // Step 3: Add components to canvas
@@ -84,7 +89,9 @@ test.describe("Save and Load Canvas State", () => {
     }
 
     // Add first component at position (200, 200)
-    await paletteItem.dragTo(canvas, { targetPosition: { x: 200, y: 200 } });
+    await paletteItem.dragTo(canvas, {
+      targetPosition: { x: 200, y: EMPTY_CANVAS_DROP_Y },
+    });
     await page.waitForTimeout(500);
 
     // Add second component at position (400, 200)
@@ -189,13 +196,16 @@ test.describe("Save and Load Canvas State", () => {
 
     // Wait for canvas
     await page.waitForSelector(".react-flow", { timeout: 20000 });
+    await dismissGuidedWizard(page);
     await page.waitForTimeout(2000);
 
     // Add components
     const paletteItem = page.locator('[draggable="true"]').first();
     const canvas = page.locator(".react-flow__pane").first();
 
-    await paletteItem.dragTo(canvas, { targetPosition: { x: 250, y: 250 } });
+    await paletteItem.dragTo(canvas, {
+      targetPosition: { x: 250, y: EMPTY_CANVAS_DROP_Y },
+    });
     await page.waitForTimeout(500);
 
     await paletteItem.dragTo(canvas, { targetPosition: { x: 450, y: 250 } });

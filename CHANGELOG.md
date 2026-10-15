@@ -20,6 +20,13 @@ All notable changes to ThreatForge are recorded here. The format follows
 - **`docker compose up` with the example `.env` never started:** the `init`
   service refused the example admin password and the API waits on it. The
   example now leaves the password empty with a note.
+- **New Project on the Projects page always failed** with "Access denied". The
+  route's declared policy required an organization id in the request, but the
+  page leaves it out and lets the server pick the caller's organization.
+- **The nightly end-to-end run never finished.** Tests had drifted from the
+  current UI (setup wizard over new models, the new-model chooser, renamed
+  settings) and API (422 for validation, `{ data }` envelopes), and canvas
+  tests hung until the 30-minute job limit.
 
 ### Documentation
 - README: screenshots, a 60-second Docker quickstart, and an accurate

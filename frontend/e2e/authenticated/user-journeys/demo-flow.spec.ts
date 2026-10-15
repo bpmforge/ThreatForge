@@ -18,7 +18,13 @@
  * Run: npx playwright test demo-flow.spec.ts
  */
 import { test, expect, skipIfNotAuthenticated } from "../../fixtures/auth";
-import { waitForCanvas, getNodes } from "../../fixtures/test-helpers";
+import {
+  chooseBlankCanvas,
+  dismissGuidedWizard,
+  EMPTY_CANVAS_DROP_Y,
+  waitForCanvas,
+  getNodes,
+} from "../../fixtures/test-helpers";
 
 test.describe("Demo Flow - Complete User Journey", () => {
   test.setTimeout(180000);
@@ -62,7 +68,6 @@ test.describe("Demo Flow - Complete User Journey", () => {
     const projectUrl = page.url();
     const projectMatch = projectUrl.match(/\/projects\/([^/]+)/);
     expect(projectMatch).not.toBeNull();
-    createdProjectId = projectMatch![1];
 
     // Verify project page shows project name
     await expect(page.locator(`text=${projectName}`).first()).toBeVisible({
@@ -107,6 +112,7 @@ test.describe("Demo Flow - Complete User Journey", () => {
         .catch(() => false);
       expect(has404).toBe(false);
 
+      await chooseBlankCanvas(page);
       const modelName = `Demo Model ${timestamp}`;
       await page
         .locator('input#name, input[placeholder*="Model"]')
@@ -129,6 +135,7 @@ test.describe("Demo Flow - Complete User Journey", () => {
     // STEP 3: Verify canvas loads
     // ========================================
     await waitForCanvas(page, 15000);
+    await dismissGuidedWizard(page);
     const canvas = page.locator(".react-flow");
     await expect(canvas).toBeVisible();
 
@@ -141,7 +148,7 @@ test.describe("Demo Flow - Complete User Journey", () => {
 
     if (await paletteItem.isVisible({ timeout: 5000 }).catch(() => false)) {
       await paletteItem.dragTo(canvasPane, {
-        targetPosition: { x: 300, y: 200 },
+        targetPosition: { x: 300, y: EMPTY_CANVAS_DROP_Y },
       });
       await page.waitForTimeout(500);
     }
@@ -258,9 +265,7 @@ test.describe("Project Creation Flow", () => {
     await page.locator('[role="dialog"] button:has-text("Create")').click();
 
     // Should see success toast
-    const successToast = page.locator(
-      '[data-type="success"], .toast-success, text=created',
-    );
+    const successToast = page.getByText(/created/i);
     await expect(successToast.first()).toBeVisible({ timeout: 5000 });
 
     // Should redirect to project page
@@ -305,6 +310,7 @@ test.describe("Model Creation from Project", () => {
     expect(has404).toBe(false);
 
     // Should show model creation form
+    await chooseBlankCanvas(page);
     const nameInput = page
       .locator('input#name, input[placeholder*="Model"]')
       .first();

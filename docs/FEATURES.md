@@ -2376,7 +2376,7 @@ _Generated from the registered Fastify routes by `npm run docs:routes` (run in `
 | Method | Path | Authz | Description |
 |--------|------|-------|-------------|
 | GET | `/api/projects` | handler (lists projects of the caller's ACTIVE memberships) |  |
-| POST | `/api/projects` | org:EDITOR |  |
+| POST | `/api/projects` | handler (EDITOR+ in the given organization, or in the one it picks when none is given) |  |
 | DELETE | `/api/projects/:id` | handler (checkProjectAccess: ACTIVE ADMIN/OWNER of the project's org ('delete' permission)) |  |
 | GET | `/api/projects/:id` | handler (checkProjectAccess: ACTIVE member (any role) of the project's org) |  |
 | PATCH | `/api/projects/:id` | handler (org role with edit on the project) |  |

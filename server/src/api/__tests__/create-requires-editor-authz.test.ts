@@ -120,6 +120,9 @@ const { exportImportRoutes } = await import(
   "../threat-models/routes/export-import.js"
 );
 const { crudRoutes: projectCrud } = await import("../projects/routes/crud.js");
+const { enforceDeclaredAuthz } = await import(
+  "../../middleware/authz-enforce.js"
+);
 
 /** Make the caller `role` (ACTIVE) in each org, for both the fake DB and the access mock. */
 function member(orgs: Record<string, Role>, status: Status = "ACTIVE") {
@@ -149,6 +152,8 @@ describe("creating models and projects requires EDITOR", () => {
     app.addHook("preHandler", async (request) => {
       request.authUser = { id: "caller", email: "c@x.test", name: "C" };
     });
+    // As in app.ts, so a declared policy stricter than the handler shows up here.
+    app.addHook("preHandler", enforceDeclaredAuthz);
     await app.register(modelCrud);
     await app.register(importRoutes);
     await app.register(exportImportRoutes);

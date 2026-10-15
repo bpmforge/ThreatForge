@@ -1,5 +1,9 @@
 import { test, expect, skipIfNotAuthenticated } from "../fixtures/auth";
 import { ApiTestHelper } from "../fixtures/api-helper";
+import {
+  dismissGuidedWizard,
+  EMPTY_CANVAS_DROP_Y as DROP_Y,
+} from "../fixtures/test-helpers";
 
 /**
  * Core Workflow E2E Tests
@@ -119,6 +123,7 @@ test.describe("Core Workflow - Project and Threat Model", () => {
       page.url().includes("/projects/") ||
       (await page
         .locator(`text=${projectName}`)
+        .first() // also in the sidebar and the "created" toast
         .isVisible({ timeout: 5000 })
         .catch(() => false));
 
@@ -264,6 +269,7 @@ test.describe("Core Workflow - Canvas Operations", () => {
 
     // Wait for canvas to be ready
     await page.waitForSelector(".react-flow", { timeout: 15000 });
+    await dismissGuidedWizard(page);
     await page.waitForTimeout(1000); // Let React Flow initialize
 
     // Get initial node count
@@ -299,7 +305,7 @@ test.describe("Core Workflow - Canvas Operations", () => {
 
     // Perform drag and drop
     await dragSource.dragTo(canvas, {
-      targetPosition: { x: 300, y: 200 },
+      targetPosition: { x: 300, y: DROP_Y },
     });
 
     await page.waitForTimeout(1000);
@@ -341,6 +347,7 @@ test.describe("Core Workflow - Canvas Operations", () => {
 
     // Wait for canvas
     await page.waitForSelector(".react-flow", { timeout: 15000 });
+    await dismissGuidedWizard(page);
     await page.waitForTimeout(1000);
 
     // Add two components
@@ -349,13 +356,13 @@ test.describe("Core Workflow - Canvas Operations", () => {
 
     // Drag first component
     await paletteItems.first().dragTo(canvas, {
-      targetPosition: { x: 200, y: 200 },
+      targetPosition: { x: 200, y: DROP_Y },
     });
     await page.waitForTimeout(500);
 
     // Drag second component
     await paletteItems.first().dragTo(canvas, {
-      targetPosition: { x: 500, y: 200 },
+      targetPosition: { x: 500, y: DROP_Y },
     });
     await page.waitForTimeout(500);
 
@@ -429,6 +436,7 @@ test.describe("Core Workflow - Canvas Operations", () => {
 
     // Wait for canvas
     await page.waitForSelector(".react-flow", { timeout: 15000 });
+    await dismissGuidedWizard(page);
     await page.waitForTimeout(1000);
 
     // Add a component first
@@ -436,7 +444,7 @@ test.describe("Core Workflow - Canvas Operations", () => {
     const canvas = page.locator(".react-flow__pane").first();
 
     await paletteItem.dragTo(canvas, {
-      targetPosition: { x: 300, y: 200 },
+      targetPosition: { x: 300, y: DROP_Y },
     });
     await page.waitForTimeout(500);
 
@@ -528,6 +536,7 @@ test.describe("Core Workflow - Canvas Operations", () => {
 
     // Wait for canvas
     await page.waitForSelector(".react-flow", { timeout: 15000 });
+    await dismissGuidedWizard(page);
     await page.waitForTimeout(1000);
 
     // Add multiple components
@@ -535,11 +544,11 @@ test.describe("Core Workflow - Canvas Operations", () => {
     const canvas = page.locator(".react-flow__pane").first();
 
     // Add first component
-    await paletteItem.dragTo(canvas, { targetPosition: { x: 200, y: 200 } });
+    await paletteItem.dragTo(canvas, { targetPosition: { x: 200, y: DROP_Y } });
     await page.waitForTimeout(300);
 
     // Add second component
-    await paletteItem.dragTo(canvas, { targetPosition: { x: 400, y: 200 } });
+    await paletteItem.dragTo(canvas, { targetPosition: { x: 400, y: DROP_Y } });
     await page.waitForTimeout(300);
 
     // Add third component
@@ -631,7 +640,7 @@ test.describe("Core Workflow - Complete Flow", () => {
 
     // Wait for navigation or error
     try {
-      await page.waitForURL(/\/models\//, { timeout: 10000 });
+      await page.waitForURL(/\/models\//, { timeout: 15000 });
     } catch {
       // Check if there's an error in the dialog
       const errorText = await page.locator('[role="dialog"]').textContent();
@@ -647,23 +656,24 @@ test.describe("Core Workflow - Complete Flow", () => {
     // Step 3: Wait for canvas and add components
     console.log("Step 3: Adding components to canvas...");
     await page.waitForSelector(".react-flow", { timeout: 15000 });
+    await dismissGuidedWizard(page);
     await page.waitForTimeout(1500);
 
     const paletteItem = page.locator('[draggable="true"]').first();
     const canvas = page.locator(".react-flow__pane").first();
 
     // Add Actor
-    await paletteItem.dragTo(canvas, { targetPosition: { x: 150, y: 200 } });
+    await paletteItem.dragTo(canvas, { targetPosition: { x: 150, y: DROP_Y } });
     await page.waitForTimeout(300);
 
     // Add Process (second palette item)
     const processItem = page.locator('[draggable="true"]').nth(2);
-    await processItem.dragTo(canvas, { targetPosition: { x: 400, y: 200 } });
+    await processItem.dragTo(canvas, { targetPosition: { x: 400, y: DROP_Y } });
     await page.waitForTimeout(300);
 
     // Add Database (third palette item)
     const dbItem = page.locator('[draggable="true"]').nth(3);
-    await dbItem.dragTo(canvas, { targetPosition: { x: 650, y: 200 } });
+    await dbItem.dragTo(canvas, { targetPosition: { x: 650, y: DROP_Y } });
     await page.waitForTimeout(500);
 
     const nodeCount = await page.locator(".react-flow__node").count();

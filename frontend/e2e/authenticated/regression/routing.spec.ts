@@ -7,6 +7,7 @@
  * Run: npx playwright test routing.spec.ts
  */
 import { test, expect, skipIfNotAuthenticated } from "../../fixtures/auth";
+import { chooseBlankCanvas } from "../../fixtures/test-helpers";
 
 test.describe("Protected Routes - No 404", () => {
   test.setTimeout(60000);
@@ -81,6 +82,7 @@ test.describe("Dynamic Routes - Parameter Handling", () => {
         await page.waitForLoadState("networkidle");
 
         // Should show the create form
+        await chooseBlankCanvas(page);
         const nameInput = page
           .locator('input#name, input[placeholder*="Model"]')
           .first();

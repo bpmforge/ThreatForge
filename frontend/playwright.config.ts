@@ -60,6 +60,7 @@ const PROD_DIRS = [
   "**/api-contracts/**",
   "**/flows/**",
   "**/smoke/**",
+  "**/tools/**",
   "**/auth.setup.ts",
   // Root-level specs that target prod (hardcoded prod URL and/or a prod
   // storageState auth file) — exclude from localhost smoke.

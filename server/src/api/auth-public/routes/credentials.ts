@@ -124,10 +124,18 @@ export const credentialsRoutes: FastifyPluginAsync = async (server) => {
 
       // Status is only revealed to someone who knows the password.
       // LOCKED is the old way of marking a lockout; lockedUntil decides now.
-      if (user.status === "PENDING_VERIFICATION") {
+      // A verified address with a pending status is an account verified
+      // before verify-email activated it; it is let in and activated below.
+      const verifiedButPending =
+        user.status === "PENDING_VERIFICATION" && !!user.emailVerified;
+      if (user.status === "PENDING_VERIFICATION" && !verifiedButPending) {
         return reject(reply, "email_unverified");
       }
-      if (!SIGN_IN_STATUSES.has(user.status) && user.status !== "LOCKED") {
+      if (
+        !SIGN_IN_STATUSES.has(user.status) &&
+        user.status !== "LOCKED" &&
+        !verifiedButPending
+      ) {
         return reject(reply, "account_disabled");
       }
 
@@ -157,7 +165,9 @@ export const credentialsRoutes: FastifyPluginAsync = async (server) => {
           lastLoginAt: now,
           failedLoginAttempts: 0,
           lockedUntil: null,
-          ...(user.status === "LOCKED" ? { status: "ACTIVE" as const } : {}),
+          ...(user.status === "LOCKED" || verifiedButPending
+            ? { status: "ACTIVE" as const }
+            : {}),
           ...(backupCodes ? { twoFactorBackupCodes: backupCodes } : {}),
         },
       });

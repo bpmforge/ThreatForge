@@ -114,3 +114,6 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # .gitleaks.toml uses [[allowlists]], which needs gitleaks 8.25+;
+          # the action's default version ignores it and flags the test fixtures.
+          GITLEAKS_VERSION: '8.28.0'

@@ -6,6 +6,25 @@ All notable changes to ThreatForge are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Verified accounts could not sign in.** With an email provider configured,
+  following the verification link marked the address verified but left the
+  account pending, so sign-in kept answering "Verify your email address before
+  signing in". Verification now activates the account, and sign-in activates
+  accounts already caught in that state.
+- **The dashboard crashed after sign-in** ("This page couldn't load") because the
+  active AI jobs panel read the paginated job list as a plain array.
+- **`./scripts/demo.sh` failed on a fresh clone.** It now fills in `JWT_SECRET`,
+  `AUTH_SECRET` and a random first-admin password, and waits until the app
+  answers before printing the sign-in details.
+- **`docker compose up` with the example `.env` never started:** the `init`
+  service refused the example admin password and the API waits on it. The
+  example now leaves the password empty with a note.
+
+### Documentation
+- README: screenshots, a 60-second Docker quickstart, and an accurate
+  Kubernetes note (images are not published yet).
+
 ## [1.1.0] — 2026-10-08
 
 First public release. This release is mostly security hardening from a full

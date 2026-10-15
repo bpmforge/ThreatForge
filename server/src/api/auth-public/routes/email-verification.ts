@@ -44,7 +44,7 @@ export const emailVerificationRoutes: FastifyPluginAsync = async (server) => {
             gt: new Date(),
           },
         },
-        select: { id: true, email: true, emailVerified: true },
+        select: { id: true, email: true, emailVerified: true, status: true },
       });
 
       if (!user) {
@@ -62,13 +62,18 @@ export const emailVerificationRoutes: FastifyPluginAsync = async (server) => {
         });
       }
 
-      // Mark email as verified and clear token
+      // Mark email as verified, clear the token, and activate an account that
+      // registration left waiting on this link (sign-in refuses
+      // PENDING_VERIFICATION).
       await prisma.user.update({
         where: { id: user.id },
         data: {
           emailVerified: new Date(),
           verificationToken: null,
           verificationTokenExpiry: null,
+          ...(user.status === "PENDING_VERIFICATION"
+            ? { status: "ACTIVE" as const }
+            : {}),
         },
       });
 

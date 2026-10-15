@@ -1,0 +1,61 @@
+name: Release
+
+# Publishes a GitHub release for a version tag, with that version's section of
+# CHANGELOG.md as the notes. Runs when a v* tag is pushed, or by hand
+# (Actions → Release → Run workflow): for an existing tag, or with `target`
+# set to a commit SHA to create the tag there along with the release.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. v1.1.0)'
+        required: true
+      target:
+        description: 'Commit SHA to tag, only when the tag does not exist yet'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      TARGET: ${{ github.event.inputs.target }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.target || github.event.inputs.tag || github.ref }}
+
+      - name: Release notes from CHANGELOG.md
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          # The lines after "## [<version>]" up to the next "## [" heading.
+          awk -v v="$version" '
+            index($0, "## [" v "]") == 1 { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "::error::CHANGELOG.md has no section for [$version]"
+            exit 1
+          fi
+
+      - name: Create or update the release
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "ThreatForge $version" --notes-file notes.md
+          elif [ -n "$TARGET" ]; then
+            # Creates the tag at TARGET along with the release.
+            gh release create "$TAG" --target "$TARGET" --title "ThreatForge $version" --notes-file notes.md
+          else
+            gh release create "$TAG" --verify-tag --title "ThreatForge $version" --notes-file notes.md
+          fi

@@ -2,6 +2,40 @@
 
 A visual threat modeling tool built with React Flow for security architects and development teams. Create, analyze, and document security threats using STRIDE methodology with AI-enhanced threat identification.
 
+Self-hosted and source-available ([FSL-1.1-ALv2](#license)). Runs on your own machine with Docker in a few minutes.
+
+![Threat model canvas with the threats panel](docs/images/threatforge-threats.webp)
+
+<table>
+  <tr>
+    <td><img src="docs/images/threatforge-dashboard.webp" alt="Dashboard"></td>
+    <td><img src="docs/images/threatforge-risk.webp" alt="Risk dashboard"></td>
+    <td><img src="docs/images/threatforge-juice-shop.webp" alt="Threat model of OWASP Juice Shop"></td>
+  </tr>
+  <tr>
+    <td align="center">Dashboard</td>
+    <td align="center">Risk dashboard</td>
+    <td align="center">A model of OWASP Juice Shop</td>
+  </tr>
+</table>
+
+## Try it in 60 seconds
+
+You need Docker with Compose 2.24 or newer.
+
+```bash
+git clone https://github.com/bpmforge/ThreatForge.git
+cd ThreatForge
+./scripts/demo.sh
+```
+
+The script creates `.env`, generates the secrets and a first admin password,
+builds the containers and waits until the app answers. The first build takes a
+few minutes; later starts are quick. When it finishes it prints the sign-in
+address (http://localhost:3000/login) and the admin email and password.
+
+Stop it with `docker compose down`, or wipe its data with `docker compose down -v`.
+
 ## Features
 
 - Visual drag-and-drop threat model canvas
@@ -13,24 +47,7 @@ A visual threat modeling tool built with React Flow for security architects and 
 - Sequence diagrams linked to threat models
 - Multi-user support with SSO
 
-## Quick Start
-
-### Clone
-
-```bash
-git clone https://github.com/bpmforge/ThreatForge.git
-cd ThreatForge
-```
-
-### Local Demo (Docker)
-
-```bash
-./scripts/demo.sh
-```
-
-Open http://localhost:3000
-
-### Development
+## Development
 
 Runs the frontend and backend directly against a local SQLite database — no
 Docker or Postgres required. The provider is auto-detected from the
@@ -55,7 +72,7 @@ npx prisma generate
 
 npm run db:push          # create the SQLite schema (no migrations folder for SQLite)
 INITIAL_SYSTEM_ADMIN_EMAIL="admin@example.com" \
-INITIAL_SYSTEM_ADMIN_PASSWORD="ChangeMe123x" \
+INITIAL_SYSTEM_ADMIN_PASSWORD="<12+ characters>" \
   npm run admin:bootstrap  # create/promote the first system admin
 npm run seed:pipelines    # seed the AI threat-analysis prompt pipeline
 npm run db:seed           # seed built-in model templates
@@ -94,8 +111,8 @@ For demos and small teams:
 ```bash
 cp .env.example .env
 # Set JWT_SECRET and AUTH_SECRET (each: openssl rand -base64 32) and the
-# INITIAL_SYSTEM_ADMIN_* credentials in .env; compose refuses to start without
-# the two secrets
+# INITIAL_SYSTEM_ADMIN_* credentials (a real password, 12+ characters) in .env;
+# compose refuses to start without the two secrets
 docker compose up --build -d
 # open http://localhost:3000/login  (admin credentials: INITIAL_SYSTEM_ADMIN_* in .env)
 ```
@@ -129,6 +146,12 @@ On a fresh production install the setup wizard asks for a setup token. Set
 ### Option 3: Kubernetes
 
 See [Cloud Deployment](./docs/DEPLOYMENT_CLOUD.md) and the Helm chart and manifests under [`deploy/`](./deploy/).
+Container images are not published yet, so build and push the `server` and
+`frontend` images to your own registry first and point the chart's
+`image.*.repository` and `image.*.tag` values at them. The chart does not create
+the database schema yet: run the server image's `migrate` target once
+(`server/scripts/docker-init.sh`, as the Compose `init` service does) before the
+first start.
 
 ## Architecture
 

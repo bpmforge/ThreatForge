@@ -183,6 +183,15 @@ describe("POST /api/auth/credentials", () => {
     expect((await signIn({})).json().code).toBe("account_disabled");
   });
 
+  it("signs in and activates a verified account still marked pending", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(
+      user({ status: "PENDING_VERIFICATION", emailVerified: new Date() }),
+    );
+    const res = await signIn({});
+    expect(res.statusCode).toBe(200);
+    expect(mockPrisma.user.update.mock.calls[0][0].data.status).toBe("ACTIVE");
+  });
+
   describe("with two-factor enabled", () => {
     const twoFactorUser = () =>
       user({

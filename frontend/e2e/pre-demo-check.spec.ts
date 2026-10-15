@@ -11,6 +11,7 @@
  * Run: npx playwright test pre-demo-check.spec.ts
  */
 import { test, expect, skipIfNotAuthenticated } from "./fixtures/auth";
+import { chooseBlankCanvas } from "./fixtures/test-helpers";
 
 test.describe("Pre-Demo Check", () => {
   test.setTimeout(120000); // 2 minutes max
@@ -32,9 +33,7 @@ test.describe("Pre-Demo Check", () => {
     await page.goto("/projects");
     await page.waitForLoadState("networkidle");
     expect(page.url()).not.toContain("/login");
-    const projectsHeading = page
-      .locator('h1:has-text("Projects"), text=Projects')
-      .first();
+    const projectsHeading = page.locator("h1", { hasText: "Projects" }).first();
     await expect(projectsHeading).toBeVisible({ timeout: 10000 });
 
     // Step 3: Create project dialog can be opened
@@ -75,6 +74,7 @@ test.describe("Pre-Demo Check", () => {
       .catch(() => false);
     expect(has404).toBe(false);
     // Should see create model form
+    await chooseBlankCanvas(page);
     const nameInput = page
       .locator('input#name, input[placeholder*="Model"]')
       .first();

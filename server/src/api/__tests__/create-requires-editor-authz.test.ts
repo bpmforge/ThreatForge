@@ -17,6 +17,7 @@ import {
   vi,
 } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
+import rateLimit from "@fastify/rate-limit";
 
 type Role = "OWNER" | "ADMIN" | "EDITOR" | "VIEWER";
 type Status = "ACTIVE" | "SUSPENDED";
@@ -120,6 +121,9 @@ const { exportImportRoutes } = await import(
   "../threat-models/routes/export-import.js"
 );
 const { crudRoutes: projectCrud } = await import("../projects/routes/crud.js");
+const { enforceDeclaredAuthz } = await import(
+  "../../middleware/authz-enforce.js"
+);
 
 /** Make the caller `role` (ACTIVE) in each org, for both the fake DB and the access mock. */
 function member(orgs: Record<string, Role>, status: Status = "ACTIVE") {
@@ -146,9 +150,13 @@ describe("creating models and projects requires EDITOR", () => {
 
   beforeAll(async () => {
     app = Fastify();
+    // Mirrors app.ts, which rate-limits every route before authz runs.
+    await app.register(rateLimit, { max: 1000, timeWindow: "1 minute" });
     app.addHook("preHandler", async (request) => {
       request.authUser = { id: "caller", email: "c@x.test", name: "C" };
     });
+    // As in app.ts, so a declared policy stricter than the handler shows up here.
+    app.addHook("preHandler", enforceDeclaredAuthz);
     await app.register(modelCrud);
     await app.register(importRoutes);
     await app.register(exportImportRoutes);

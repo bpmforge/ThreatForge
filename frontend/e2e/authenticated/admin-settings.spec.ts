@@ -17,9 +17,7 @@ test.describe("Admin Settings (Authenticated)", () => {
     expect(authenticatedPage.url()).not.toContain("/login");
 
     // Verify page title
-    await expect(authenticatedPage.locator("h1")).toContainText(
-      "System Settings",
-    );
+    await expect(authenticatedPage.locator("h1")).toContainText("Settings");
 
     // Verify tabs are present
     await expect(authenticatedPage.locator('[role="tablist"]')).toBeVisible();
@@ -106,10 +104,12 @@ test.describe("Admin Settings (Authenticated)", () => {
     await authenticatedPage.waitForTimeout(500);
 
     // Verify providers are listed
-    await expect(authenticatedPage.locator("text=Google")).toBeVisible();
-    await expect(authenticatedPage.locator("text=GitHub")).toBeVisible();
-    await expect(authenticatedPage.locator("text=Microsoft")).toBeVisible();
-    await expect(authenticatedPage.locator("text=Custom OIDC")).toBeVisible();
+    // Each name also appears in its card's description and callback URL.
+    for (const provider of ["Google", "GitHub", "Microsoft", "Custom OIDC"]) {
+      await expect(
+        authenticatedPage.locator(`text=${provider}`).first(),
+      ).toBeVisible();
+    }
   });
 
   test("oauth tab shows callback URLs section", async ({
@@ -144,7 +144,9 @@ test.describe("Admin Settings (Authenticated)", () => {
     await authenticatedPage.waitForTimeout(500);
 
     // Verify Security content is visible
-    await expect(authenticatedPage.locator("text=IP Allowlist")).toBeVisible();
+    await expect(
+      authenticatedPage.getByText("IP Allowlist", { exact: true }),
+    ).toBeVisible();
   });
 
   test("general tab shows expected settings", async ({ authenticatedPage }) => {
@@ -160,16 +162,16 @@ test.describe("Admin Settings (Authenticated)", () => {
 
     // Verify general settings content
     await expect(
-      authenticatedPage.locator("text=User Registration"),
+      authenticatedPage.getByText("Authentication", { exact: true }),
     ).toBeVisible();
     await expect(
-      authenticatedPage.locator("text=Allow new user signups"),
+      authenticatedPage.getByText("Allow Sign-ups", { exact: true }),
     ).toBeVisible();
     await expect(
-      authenticatedPage.locator("text=Session Management"),
+      authenticatedPage.getByText("Session Timeout (hours)", { exact: true }),
     ).toBeVisible();
     await expect(
-      authenticatedPage.locator("text=AI Configuration"),
+      authenticatedPage.getByText("AI Configuration", { exact: true }),
     ).toBeVisible();
   });
 });

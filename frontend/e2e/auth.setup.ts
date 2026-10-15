@@ -28,13 +28,17 @@ const TEST_EMAIL = process.env.E2E_TEST_EMAIL || "test@example.com";
 const TEST_PASSWORD = process.env.E2E_TEST_PASSWORD || "testpassword123";
 
 setup("authenticate", async ({ page }) => {
+  // First hit on the dev server compiles /login and /dashboard on demand.
+  setup.setTimeout(90_000);
   // Ensure the .auth directory exists before saving state.
   fs.mkdirSync(path.dirname(STORAGE_STATE), { recursive: true });
 
   // Start from a clean session to avoid stale NextAuth JWT decryption errors.
   await page.context().clearCookies();
 
-  await page.goto("/login");
+  // networkidle: submitting before the form hydrates posts without the CSRF
+  // token, and NextAuth bounces back to /login?error=MissingCSRF.
+  await page.goto("/login", { waitUntil: "networkidle" });
   await page.waitForSelector('input[type="email"]', { timeout: 30_000 });
   await page.fill('input[type="email"]', TEST_EMAIL);
   await page.fill('input[type="password"]', TEST_PASSWORD);

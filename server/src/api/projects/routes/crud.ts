@@ -254,7 +254,15 @@ export const crudRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post(
     "/api/projects",
     {
-      config: { authz: { org: "EDITOR" } },
+      // Not { org: "EDITOR" }: organizationId is optional (the handler picks
+      // one where the caller is EDITOR+), and the declared policy refused
+      // every request without it.
+      config: {
+        authz: {
+          handler:
+            "EDITOR+ in the given organization, or in the one it picks when none is given",
+        },
+      },
       preHandler: requireScopes(["write:projects"]),
     },
     async (request, reply) => {

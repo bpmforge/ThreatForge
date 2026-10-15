@@ -23,6 +23,9 @@ for (const r of RENDERERS) {
   test(`canvas loads with deduplicated nodes, no errors (${r.name})`, async ({
     page,
   }) => {
+    // Login (up to 15s) plus the 12s wait for the seeded model overran the
+    // default 30s, so the test timed out before it could skip.
+    test.setTimeout(60_000);
     const errors: string[] = [];
     const warnings: string[] = [];
 

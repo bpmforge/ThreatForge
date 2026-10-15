@@ -222,7 +222,7 @@ test.describe("Version API Validation", () => {
       `/api/threat-models/${modelId}/versions/non-existent-version/restore`,
     );
 
-    // Should return 404
-    expect(response.status()).toBe(404);
+    // A malformed version id is rejected as 400, an unknown one as 404.
+    expect([400, 404]).toContain(response.status());
   });
 });

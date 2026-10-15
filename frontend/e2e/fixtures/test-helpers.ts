@@ -17,6 +17,36 @@ export async function waitForCanvas(page: Page, timeout = 10000) {
 }
 
 /**
+ * A new, empty model opens the Guided Threat Model Setup wizard over the
+ * canvas, which blocks every drag and click. Skip it when it shows up.
+ */
+export async function dismissGuidedWizard(page: Page) {
+  const skip = page.locator('[role="dialog"] button:has-text("Skip Wizard")');
+  const shown = await skip
+    .waitFor({ state: "visible", timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  if (shown) {
+    await skip.click();
+    await expect(skip).toBeHidden();
+  }
+}
+
+/**
+ * The empty canvas shows a "Start Your Threat Model" card in the middle that
+ * swallows drops, so drop the first component above it (pane coordinates).
+ */
+export const EMPTY_CANVAS_DROP_Y = 80;
+
+/**
+ * /models/new opens on a "How would you like to start?" chooser; the name
+ * form appears after picking a method. Pick "Blank Canvas".
+ */
+export async function chooseBlankCanvas(page: Page) {
+  await page.locator('button:has-text("Blank Canvas")').first().click();
+}
+
+/**
  * Get the React Flow pane element (for clicks/drags)
  */
 export async function getCanvasPane(page: Page) {

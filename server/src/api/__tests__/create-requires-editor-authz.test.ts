@@ -17,6 +17,7 @@ import {
   vi,
 } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
+import rateLimit from "@fastify/rate-limit";
 
 type Role = "OWNER" | "ADMIN" | "EDITOR" | "VIEWER";
 type Status = "ACTIVE" | "SUSPENDED";
@@ -149,6 +150,8 @@ describe("creating models and projects requires EDITOR", () => {
 
   beforeAll(async () => {
     app = Fastify();
+    // Mirrors app.ts, which rate-limits every route before authz runs.
+    await app.register(rateLimit, { max: 1000, timeWindow: "1 minute" });
     app.addHook("preHandler", async (request) => {
       request.authUser = { id: "caller", email: "c@x.test", name: "C" };
     });

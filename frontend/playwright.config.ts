@@ -45,6 +45,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 // it from API_URL (http→ws) unless overridden.
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || API_URL.replace(/^http/, "ws");
 
+// A click or drag whose target stays covered (by a dialog, say) otherwise
+// waits out the whole test timeout and, with retries, the CI job's time
+// limit, and the run ends without reporting why.
+const LOCAL_ACTION_TIMEOUT = 15_000;
+
 // storageState written by the `setup` project (auth.setup.ts) — frontend/.auth/user.json.
 const SETUP_STATE = path.join(__dirname, ".auth", "user.json");
 
@@ -102,7 +107,10 @@ export default defineConfig({
       name: "smoke",
       testDir: "./e2e",
       testIgnore: PROD_DIRS,
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        actionTimeout: LOCAL_ACTION_TIMEOUT,
+      },
     },
     // Authenticated tests — reuse the session saved by `setup`. Sequential to
     // avoid rate limits.
@@ -110,7 +118,11 @@ export default defineConfig({
       name: "authenticated",
       testDir: "./e2e/authenticated",
       dependencies: ["setup"],
-      use: { ...devices["Desktop Chrome"], storageState: SETUP_STATE },
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: SETUP_STATE,
+        actionTimeout: LOCAL_ACTION_TIMEOUT,
+      },
       fullyParallel: false,
     },
     // Product tour — runs against public prod, generates Scribe-style screenshot docs

@@ -112,7 +112,8 @@ export function GuidedWizard({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      {/* Scrolls on short screens; at 720px tall the step buttons fell off-screen. */}
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Guided Threat Model Setup</DialogTitle>
         </DialogHeader>

@@ -18,7 +18,8 @@ jobs:
   e2e:
     name: E2E (smoke + authenticated)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The suite takes ~20 min on one worker when green; leave room for retries.
+    timeout-minutes: 45
     env:
       CI: 'true'
       # Absolute path so the backend (cwd server/) and frontend (cwd frontend/)

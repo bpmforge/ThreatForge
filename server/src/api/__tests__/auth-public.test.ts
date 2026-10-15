@@ -501,6 +501,47 @@ describe("Auth Public API", () => {
       );
     });
 
+    it("activates an account that registration left pending", async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: "user-1",
+        email: "user@example.com",
+        emailVerified: null,
+        status: "PENDING_VERIFICATION",
+      });
+      mockPrisma.user.update.mockResolvedValue({});
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/auth/verify-email",
+        payload: { token: "valid-verification-token" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(mockPrisma.user.update.mock.calls[0][0].data.status).toBe(
+        "ACTIVE",
+      );
+    });
+
+    it("leaves a suspended account's status alone", async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: "user-1",
+        email: "user@example.com",
+        emailVerified: null,
+        status: "SUSPENDED",
+      });
+      mockPrisma.user.update.mockResolvedValue({});
+
+      await app.inject({
+        method: "POST",
+        url: "/api/auth/verify-email",
+        payload: { token: "valid-verification-token" },
+      });
+
+      expect(mockPrisma.user.update.mock.calls[0][0].data).not.toHaveProperty(
+        "status",
+      );
+    });
+
     it("returns success with alreadyVerified flag if email is already verified", async () => {
       mockPrisma.user.findFirst.mockResolvedValue({
         id: "user-1",
